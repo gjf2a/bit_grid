@@ -1,0 +1,8 @@
+[package]
+name = "bit_grid"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+bits = {git = "https://github.com/gjf2a/bits"}
+anyhow = "1.0.101"
