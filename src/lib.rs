@@ -233,6 +233,7 @@ mod tests {
         }
 
         let zero_grid = grid.zero_clone();
+        assert!(grid.matching_dimensions(&zero_grid)); 
         assert_eq!(zero_grid.width(), grid.width());
         assert_eq!(zero_grid.height(), grid.height());
         assert!(zero_grid.iter().all(|(_, _, value)| !value));
@@ -258,6 +259,10 @@ mod tests {
                 }
             }
         }
+
+        let zeros = grid.zero_clone();
+        assert!(zeros.matching_dimensions(&grid));
+        assert_eq!(zeros.x_min_x_max_y_min_y_max(), grid.x_min_x_max_y_min_y_max());
     }
 
     #[test]
@@ -273,13 +278,5 @@ mod tests {
             let two = two.parse::<BitGrid>().unwrap();
             assert_eq!(count, one.overlapping_counts(&two).unwrap());
         }
-    }
-
-    #[test]
-    fn test_zero_clone() {
-        let grid = "101\n010".parse::<BitGrid>().unwrap();
-        let zeros = grid.zero_clone();
-        println!("{zeros}\n");
-        assert!(grid.matching_dimensions(&zeros)); 
     }
 }
