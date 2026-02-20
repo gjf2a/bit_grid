@@ -1,5 +1,7 @@
 use std::{
-    cmp::{max, min}, fmt::Display, str::FromStr
+    cmp::{max, min},
+    fmt::Display,
+    str::FromStr,
 };
 
 use bits::BitArray;
@@ -54,7 +56,7 @@ impl Display for BitGrid {
             if y > self.min_y && x == self.min_x {
                 write!(f, "\n")?;
             }
-            let c = if value {'1'} else {'0'};
+            let c = if value { '1' } else { '0' };
             write!(f, "{c}")?;
         }
         Ok(())
@@ -116,6 +118,21 @@ impl BitGrid {
 
     pub fn height(&self) -> i64 {
         span(self.min_y, self.max_y)
+    }
+
+    pub fn matching_dimensions(&self, other: &Self) -> bool {
+        self.min_x == other.min_x
+            && self.min_y == other.min_y
+            && self.max_x == other.max_x
+            && self.max_y == other.max_y
+    }
+
+    pub fn overlapping_counts(&self, other: &Self) -> Option<u64> {
+        if self.matching_dimensions(other) {
+            Some((&self.bits & &other.bits).count_bits_on())
+        } else {
+            None
+        }
     }
 
     fn index_1d(&self, x: i64, y: i64) -> Option<u64> {
@@ -220,7 +237,10 @@ mod tests {
     #[test]
     fn test_from_iter() {
         let pvs = [(2, 2, true), (-1, 3, false), (3, -2, true)];
-        let test_points = pvs.iter().map(|(x, y, value)| ((*x, *y), *value)).collect::<HashMap<_,_>>();
+        let test_points = pvs
+            .iter()
+            .map(|(x, y, value)| ((*x, *y), *value))
+            .collect::<HashMap<_, _>>();
         let grid = pvs.iter().copied().collect::<BitGrid>();
         assert_eq!(grid.width(), 5);
         assert_eq!(grid.height(), 6);
@@ -233,6 +253,21 @@ mod tests {
                     assert_eq!(value, false);
                 }
             }
+        }
+    }
+
+    #[test]
+    fn test_overlapping_counts() {
+        for (one, two, count) in [
+            ("101\n010", "110\n110", 2),
+            ("101\n010", "010\n101", 0),
+            ("101\n010", "101\n010", 3),
+            ("111\n111", "111\n111", 6),
+            ("000\n000", "000\n000", 0),
+        ] {
+            let one = one.parse::<BitGrid>().unwrap();
+            let two = two.parse::<BitGrid>().unwrap();
+            assert_eq!(count, one.overlapping_counts(&two).unwrap());
         }
     }
 }
