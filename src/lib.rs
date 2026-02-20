@@ -82,10 +82,9 @@ impl BitGrid {
                 let max_y = max(y, self.max_y);
                 let mut new_self = Self::new(min_x, max_x, min_y, max_y);
                 for (x, y, value) in self.iter() {
-                    new_self.bits.set(self.unchecked_index_1d(x, y), value);
+                    new_self.bits.set(new_self.unchecked_index_1d(x, y), value);
                 }
-                println!("{x} {y} index {}", self.unchecked_index_1d(x, y));
-                new_self.bits.set(self.unchecked_index_1d(x, y), value);
+                new_self.bits.set(new_self.unchecked_index_1d(x, y), value);
                 std::mem::swap(&mut new_self, self);
             }
         }
@@ -157,23 +156,11 @@ fn span(min: i64, max: i64) -> i64 {
     max - min + 1
 }
 
-fn offset(value: i64, min: i64) -> i64 {
-    value - min
-}
-
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
 
     use super::*;
-
-    #[test]
-    fn test_offset() {
-        let tests = [(3, 0, 3), (3, 1, 2), (3, -1, 4), (0, -2, 2)];
-        for (value, min, expected) in tests.iter().copied() {
-            assert_eq!(offset(value, min), expected);
-        }
-    }
 
     #[test]
     fn test_from_str() {
