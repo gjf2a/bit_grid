@@ -61,6 +61,10 @@ impl BitGrid {
         }
     }
 
+    pub fn zero_clone(&self) -> Self {
+        Self::new(self.min_x, self.max_x, self.min_y, self.max_y)
+    }
+
     pub fn is_set(&self, x: i64, y: i64) -> Option<bool> {
         self.index_1d(x, y).map(|i| self.bits.is_set(i))
     }
@@ -163,10 +167,10 @@ mod tests {
 
     #[test]
     fn test_from_str() {
-        let basic = "1101\n1011\n0010\n";
-        let expected = basic.parse::<BitGrid>().unwrap();
-        assert_eq!(expected.height(), 3);
-        assert_eq!(expected.width(), 4);
+        let grid_str = "1101\n1011\n0010\n";
+        let grid = grid_str.parse::<BitGrid>().unwrap();
+        assert_eq!(grid.height(), 3);
+        assert_eq!(grid.width(), 4);
         for (x, y, value) in [
             (0, 0, true),
             (1, 0, true),
@@ -181,12 +185,17 @@ mod tests {
             (2, 2, true),
             (3, 2, false),
         ] {
-            assert_eq!(expected.is_set(x, y).unwrap(), value);
+            assert_eq!(grid.is_set(x, y).unwrap(), value);
         }
 
         for (x, y) in [(-1, 0), (3, 3), (1, 3), (4, 1), (1, -3)] {
-            assert_eq!(expected.is_set(x, y), None);
+            assert_eq!(grid.is_set(x, y), None);
         }
+
+        let zero_grid = grid.zero_clone();
+        assert_eq!(zero_grid.width(), grid.width());
+        assert_eq!(zero_grid.height(), grid.height());
+        assert!(zero_grid.iter().all(|(_, _, value)| !value));
     }
 
     #[test]
