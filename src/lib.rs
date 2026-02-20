@@ -65,13 +65,17 @@ impl BitGrid {
         Self::new(self.min_x, self.max_x, self.min_y, self.max_y)
     }
 
-    pub fn is_set(&self, x: i64, y: i64) -> Option<bool> {
-        self.index_1d(x, y).map(|i| self.bits.is_set(i))
-    }
-
     pub fn iter(&self) -> impl Iterator<Item = (i64, i64, bool)> {
         let xy: CoordIter = self.into();
         xy.map(|(x, y)| (x, y, self.is_set(x, y).unwrap()))
+    }
+
+    pub fn in_bounds(&self, x: i64, y: i64) -> bool {
+        self.index_1d(x, y).is_some()
+    }
+
+    pub fn is_set(&self, x: i64, y: i64) -> Option<bool> {
+        self.index_1d(x, y).map(|i| self.bits.is_set(i))
     }
 
     pub fn set(&mut self, x: i64, y: i64, value: bool) {
@@ -186,10 +190,12 @@ mod tests {
             (3, 2, false),
         ] {
             assert_eq!(grid.is_set(x, y).unwrap(), value);
+            assert!(grid.in_bounds(x, y));
         }
 
         for (x, y) in [(-1, 0), (3, 3), (1, 3), (4, 1), (1, -3)] {
             assert_eq!(grid.is_set(x, y), None);
+            assert!(!grid.in_bounds(x, y));
         }
 
         let zero_grid = grid.zero_clone();
