@@ -84,6 +84,7 @@ impl BitGrid {
                 for (x, y, value) in self.iter() {
                     new_self.bits.set(self.unchecked_index_1d(x, y), value);
                 }
+                println!("{x} {y} index {}", self.unchecked_index_1d(x, y));
                 new_self.bits.set(self.unchecked_index_1d(x, y), value);
                 std::mem::swap(&mut new_self, self);
             }
@@ -107,6 +108,7 @@ impl BitGrid {
     }
 
     fn unchecked_index_1d(&self, x: i64, y: i64) -> u64 {
+        println!("min_x: {} min_y: {} width: {} x: {x} y: {y}", self.min_x, self.min_y, self.width());
         let grid_x = x - self.min_x;
         let grid_y = y - self.min_y;
         (grid_y * self.width() + grid_x) as u64
@@ -155,16 +157,26 @@ fn span(min: i64, max: i64) -> i64 {
     max - min + 1
 }
 
-pub fn add(left: u64, right: u64) -> u64 {
-    left + right
+fn offset(value: i64, min: i64) -> i64 {
+    value - min
 }
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+
     use super::*;
 
     #[test]
-    fn it_works() {
+    fn test_offset() {
+        let tests = [(3, 0, 3), (3, 1, 2), (3, -1, 4), (0, -2, 2)];
+        for (value, min, expected) in tests.iter().copied() {
+            assert_eq!(offset(value, min), expected);
+        }
+    }
+
+    #[test]
+    fn test_from_str() {
         let basic = "1101\n1011\n0010\n";
         let expected = basic.parse::<BitGrid>().unwrap();
         assert_eq!(expected.height(), 3);
@@ -188,6 +200,25 @@ mod tests {
 
         for (x, y) in [(-1, 0), (3, 3), (1, 3), (4, 1), (1, -3)] {
             assert_eq!(expected.is_set(x, y), None);
+        }
+    }
+
+    #[test]
+    fn test_from_iter() {
+        let pvs = [(2, 2, true), (-1, 3, false), (3, -2, true)];
+        let test_points = pvs.iter().map(|(x, y, value)| ((*x, *y), *value)).collect::<HashMap<_,_>>();
+        let grid = pvs.iter().copied().collect::<BitGrid>();
+        assert_eq!(grid.width(), 5);
+        assert_eq!(grid.height(), 6);
+        for (x, y, value) in grid.iter() {
+            match test_points.get(&(x, y)) {
+                Some(expected) => {
+                    assert_eq!(value, *expected);
+                }
+                None => {
+                    assert_eq!(value, false);
+                }
+            }
         }
     }
 }
