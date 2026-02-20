@@ -148,6 +148,10 @@ impl BitGrid {
         let grid_y = y - self.min_y;
         (grid_y * self.width() + grid_x) as u64
     }
+
+    pub fn x_min_x_max_y_min_y_max(&self) -> (i64, i64, i64, i64) {
+        (self.min_x, self.max_x, self.min_y, self.max_y)
+    }
 }
 
 struct CoordIter {
@@ -269,5 +273,13 @@ mod tests {
             let two = two.parse::<BitGrid>().unwrap();
             assert_eq!(count, one.overlapping_counts(&two).unwrap());
         }
+    }
+
+    #[test]
+    fn test_zero_clone() {
+        let grid = "101\n010".parse::<BitGrid>().unwrap();
+        let zeros = grid.zero_clone();
+        println!("{zeros}\n");
+        assert!(grid.matching_dimensions(&zeros)); 
     }
 }
