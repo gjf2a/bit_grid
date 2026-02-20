@@ -1,6 +1,5 @@
 use std::{
-    cmp::{max, min},
-    str::FromStr,
+    cmp::{max, min}, fmt::Display, str::FromStr
 };
 
 use bits::BitArray;
@@ -46,6 +45,19 @@ impl FromStr for BitGrid {
             }
         }
         Ok(result)
+    }
+}
+
+impl Display for BitGrid {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for (x, y, value) in self.iter() {
+            if y > self.min_y && x == self.min_x {
+                write!(f, "\n")?;
+            }
+            let c = if value {'1'} else {'0'};
+            write!(f, "{c}")?;
+        }
+        Ok(())
     }
 }
 
@@ -173,6 +185,7 @@ mod tests {
     fn test_from_str() {
         let grid_str = "1101\n1011\n0010\n";
         let grid = grid_str.parse::<BitGrid>().unwrap();
+        assert_eq!(format!("{grid}\n"), grid_str);
         assert_eq!(grid.height(), 3);
         assert_eq!(grid.width(), 4);
         for (x, y, value) in [
