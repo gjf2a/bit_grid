@@ -107,7 +107,6 @@ impl BitGrid {
     }
 
     fn unchecked_index_1d(&self, x: i64, y: i64) -> u64 {
-        println!("min_x: {} min_y: {} width: {} x: {x} y: {y}", self.min_x, self.min_y, self.width());
         let grid_x = x - self.min_x;
         let grid_y = y - self.min_y;
         (grid_y * self.width() + grid_x) as u64
