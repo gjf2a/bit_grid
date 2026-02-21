@@ -84,6 +84,10 @@ impl BitGrid {
         xy.map(|(x, y)| (x, y, self.is_set(x, y).unwrap()))
     }
 
+    pub fn count_bits_on(&self) -> u64 {
+        self.bits.count_bits_on()
+    }
+
     pub fn in_bounds(&self, x: i64, y: i64) -> bool {
         self.index_1d(x, y).is_some()
     }
@@ -209,6 +213,7 @@ mod tests {
         assert_eq!(format!("{grid}\n"), grid_str);
         assert_eq!(grid.height(), 3);
         assert_eq!(grid.width(), 4);
+        assert_eq!(grid.count_bits_on(), 7);
         for (x, y, value) in [
             (0, 0, true),
             (1, 0, true),
@@ -247,6 +252,7 @@ mod tests {
             .map(|(x, y, value)| ((*x, *y), *value))
             .collect::<HashMap<_, _>>();
         let grid = pvs.iter().copied().collect::<BitGrid>();
+        assert_eq!(grid.count_bits_on(), 2);
         assert_eq!(grid.width(), 5);
         assert_eq!(grid.height(), 6);
         for (x, y, value) in grid.iter() {
