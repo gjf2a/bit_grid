@@ -6,7 +6,7 @@ use std::{
 
 use bits::BitArray;
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq, Debug)]
 pub struct BitGrid {
     bits: BitArray,
     min_x: i64,
@@ -106,14 +106,22 @@ impl BitGrid {
                 let max_x = max(x, self.max_x);
                 let min_y = min(y, self.min_y);
                 let max_y = max(y, self.max_y);
-                let mut new_self = Self::new(min_x, max_x, min_y, max_y);
+                self.resize(min_x, max_x, min_y, max_y);    
+                self.bits.set(self.unchecked_index_1d(x, y), value);
+            }
+        }
+    }
+
+    pub fn enlarge(&mut self, multiplier: i64) {
+        self.resize(self.min_x * multiplier, self.max_x * multiplier, self.min_y * multiplier, self.max_y * multiplier);
+    }
+
+    fn resize(&mut self, min_x: i64, max_x: i64, min_y: i64, max_y: i64) {
+let mut new_self = Self::new(min_x, max_x, min_y, max_y);
                 for (x, y, value) in self.iter() {
                     new_self.bits.set(new_self.unchecked_index_1d(x, y), value);
                 }
-                new_self.bits.set(new_self.unchecked_index_1d(x, y), value);
                 std::mem::swap(&mut new_self, self);
-            }
-        }
     }
 
     pub fn width(&self) -> i64 {
@@ -284,5 +292,23 @@ mod tests {
             let two = two.parse::<BitGrid>().unwrap();
             assert_eq!(count, one.overlapping_counts(&two).unwrap());
         }
+    }
+
+    #[test]
+    fn test_enlarge_1() {
+        let mut start = "111\n111\n111".parse::<BitGrid>().unwrap();
+        let enlarged = "11100\n11100\n11100\n00000\n00000".parse::<BitGrid>().unwrap();
+        start.enlarge(2);
+        assert_eq!(start, enlarged);
+    }
+
+    #[test]
+    fn test_enlarge_2() {
+        let starts = [(-1, -1), (1, 1)];
+        let mut start = starts.iter().map(|(x, y)| (*x, *y, true)).collect::<BitGrid>();
+        start.enlarge(3);
+        let enlarged_pts = [(-1, -1, true), (1, 1, true), (-3, -3, false), (3, 3, false)];
+        let enlarged = enlarged_pts.iter().copied().collect::<BitGrid>();
+        assert_eq!(enlarged, start);
     }
 }
