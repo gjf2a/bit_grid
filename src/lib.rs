@@ -131,7 +131,8 @@ impl BitGrid {
     }
 
     fn resize(&mut self, min_x: i64, max_x: i64, min_y: i64, max_y: i64) {
-        if min_x != self.min_x || max_x != self.max_x || min_y != self.min_y || max_y != self.max_y {
+        if min_x != self.min_x || max_x != self.max_x || min_y != self.min_y || max_y != self.max_y
+        {
             let mut new_self = Self::new(min_x, max_x, min_y, max_y);
             for (x, y, value) in self.iter() {
                 new_self.bits.set(new_self.unchecked_index_1d(x, y), value);
