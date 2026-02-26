@@ -102,23 +102,14 @@ impl BitGrid {
                 self.bits.set(i, value);
             }
             None => {
-                let min_x = min(x, self.min_x);
-                let max_x = max(x, self.max_x);
-                let min_y = min(y, self.min_y);
-                let max_y = max(y, self.max_y);
+                let min_x = if x < self.min_x {x - self.width()} else {self.min_x};
+                let max_x = if x > self.max_x {x + self.width()} else {self.max_x};
+                let min_y = if y < self.min_y {y - self.height()} else {self.min_y};
+                let max_y = if y > self.max_y {y + self.height()} else {self.max_y};
                 self.resize(min_x, max_x, min_y, max_y);
                 self.bits.set(self.unchecked_index_1d(x, y), value);
             }
         }
-    }
-
-    pub fn enlarge(&mut self, multiplier: i64) {
-        self.resize(
-            self.min_x * multiplier,
-            self.max_x * multiplier,
-            self.min_y * multiplier,
-            self.max_y * multiplier,
-        );
     }
 
     pub fn match_sizes(&mut self, other: &mut Self) {
@@ -233,11 +224,11 @@ mod tests {
 
     #[test]
     fn test_from_str() {
-        let grid_str = "1101\n1011\n0010\n";
+        let grid_str = "1101000\n1011000\n0010000\n";
         let grid = grid_str.parse::<BitGrid>().unwrap();
         assert_eq!(format!("{grid}\n"), grid_str);
         assert_eq!(grid.height(), 3);
-        assert_eq!(grid.width(), 4);
+        assert_eq!(grid.width(), 7);
         assert_eq!(grid.count_bits_on(), 7);
         for (x, y, value) in [
             (0, 0, true),
@@ -252,12 +243,13 @@ mod tests {
             (1, 2, false),
             (2, 2, true),
             (3, 2, false),
+            (4, 1, false), 
         ] {
             assert_eq!(grid.is_set(x, y).unwrap(), value);
             assert!(grid.in_bounds(x, y));
         }
 
-        for (x, y) in [(-1, 0), (3, 3), (1, 3), (4, 1), (1, -3)] {
+        for (x, y) in [(-1, 0), (3, 3), (1, 3), (1, -3)] {
             assert_eq!(grid.is_set(x, y), None);
             assert!(!grid.in_bounds(x, y));
         }
@@ -278,8 +270,8 @@ mod tests {
             .collect::<HashMap<_, _>>();
         let grid = pvs.iter().copied().collect::<BitGrid>();
         assert_eq!(grid.count_bits_on(), 2);
-        assert_eq!(grid.width(), 5);
-        assert_eq!(grid.height(), 6);
+        assert_eq!(grid.width(), 9);
+        assert_eq!(grid.height(), 10);
         for (x, y, value) in grid.iter() {
             match test_points.get(&(x, y)) {
                 Some(expected) => {
@@ -312,29 +304,6 @@ mod tests {
             let two = two.parse::<BitGrid>().unwrap();
             assert_eq!(count, one.overlapping_counts(&two).unwrap());
         }
-    }
-
-    #[test]
-    fn test_enlarge_1() {
-        let mut start = "111\n111\n111".parse::<BitGrid>().unwrap();
-        let enlarged = "11100\n11100\n11100\n00000\n00000"
-            .parse::<BitGrid>()
-            .unwrap();
-        start.enlarge(2);
-        assert_eq!(start, enlarged);
-    }
-
-    #[test]
-    fn test_enlarge_2() {
-        let starts = [(-1, -1), (1, 1)];
-        let mut start = starts
-            .iter()
-            .map(|(x, y)| (*x, *y, true))
-            .collect::<BitGrid>();
-        start.enlarge(3);
-        let enlarged_pts = [(-1, -1, true), (1, 1, true), (-3, -3, false), (3, 3, false)];
-        let enlarged = enlarged_pts.iter().copied().collect::<BitGrid>();
-        assert_eq!(enlarged, start);
     }
 
     #[test]
