@@ -121,12 +121,23 @@ impl BitGrid {
         );
     }
 
+    pub fn match_sizes(&mut self, other: &mut Self) {
+        let min_x = min(self.min_x, other.min_x);
+        let max_x = max(self.max_x, other.max_x);
+        let min_y = min(self.min_y, other.min_y);
+        let max_y = max(self.max_y, other.max_y);
+        self.resize(min_x, max_x, min_y, max_y);
+        other.resize(min_x, max_x, min_y, max_y);
+    }
+
     fn resize(&mut self, min_x: i64, max_x: i64, min_y: i64, max_y: i64) {
-        let mut new_self = Self::new(min_x, max_x, min_y, max_y);
-        for (x, y, value) in self.iter() {
-            new_self.bits.set(new_self.unchecked_index_1d(x, y), value);
+        if min_x != self.min_x || max_x != self.max_x || min_y != self.min_y || max_y != self.max_y {
+            let mut new_self = Self::new(min_x, max_x, min_y, max_y);
+            for (x, y, value) in self.iter() {
+                new_self.bits.set(new_self.unchecked_index_1d(x, y), value);
+            }
+            std::mem::swap(&mut new_self, self);
         }
-        std::mem::swap(&mut new_self, self);
     }
 
     pub fn width(&self) -> i64 {
@@ -323,5 +334,16 @@ mod tests {
         let enlarged_pts = [(-1, -1, true), (1, 1, true), (-3, -3, false), (3, 3, false)];
         let enlarged = enlarged_pts.iter().copied().collect::<BitGrid>();
         assert_eq!(enlarged, start);
+    }
+
+    #[test]
+    fn test_match_sizes() {
+        let mut one = "01\n10\n11".parse::<BitGrid>().unwrap();
+        let mut two = "101\n110".parse::<BitGrid>().unwrap();
+        one.match_sizes(&mut two);
+        let one_big = "010\n100\n110".parse::<BitGrid>().unwrap();
+        let two_big = "101\n110\n000".parse::<BitGrid>().unwrap();
+        assert_eq!(one, one_big);
+        assert_eq!(two, two_big);
     }
 }
