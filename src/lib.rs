@@ -80,8 +80,17 @@ impl BitGrid {
     }
 
     pub fn iter(&self) -> impl Iterator<Item = (i64, i64, bool)> {
-        let xy: CoordIter = self.into();
+        let xy: CoordIter = CoordIter::from(self);
         xy.map(|(x, y)| (x, y, self.is_set(x, y).unwrap()))
+    }
+
+    pub fn ones(&self) -> impl Iterator<Item = (i64, i64)> {
+        let xy: CoordIter = CoordIter::from(self);
+        xy.filter(|(x, y)| self.is_set(*x, *y).unwrap_or(false))
+    }
+
+    pub fn manhattan_neighbors(&self, x: i64, y: i64) -> impl Iterator<Item = (i64, i64, bool)> {
+        ManhattanIter::new(x, y, self)
     }
 
     pub fn count_bits_on(&self) -> u64 {
@@ -182,7 +191,7 @@ struct CoordIter {
     y: i64,
 }
 
-impl From<&BitGrid> for CoordIter {
+impl CoordIter {
     fn from(value: &BitGrid) -> Self {
         Self {
             max_y: value.max_y,
@@ -208,6 +217,53 @@ impl Iterator for CoordIter {
                 self.y += 1;
             }
             result
+        }
+    }
+}
+
+const MANHATTAN_OFFSETS: [(i64, i64); 4] = [(-1, 0), (0, -1), (1, 0), (0, 1)];
+
+struct ManhattanIter<'a> {
+    base_x: i64,
+    base_y: i64,
+    offset: usize,
+    grid: &'a BitGrid,
+}
+
+impl<'a> ManhattanIter<'a> {
+    fn new(x: i64, y: i64, grid: &'a BitGrid) -> Self {
+        Self {
+            base_x: x,
+            base_y: y,
+            offset: 0,
+            grid
+        }
+    }
+
+    fn done(&self) -> bool {
+        self.offset == MANHATTAN_OFFSETS.len()
+    }
+
+    fn advance(&mut self) -> Option<(i64, i64, bool)> {
+        let (offset_x, offset_y) = MANHATTAN_OFFSETS[self.offset];
+        let x = self.base_x + offset_x;
+        let y = self.base_y + offset_y;
+        self.offset += 1;
+        self.grid.is_set(x, y).map(|value| (x, y, value))
+    }
+}
+
+impl<'a> Iterator for ManhattanIter<'a> {
+    type Item = (i64, i64, bool);
+    
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            if self.done() {
+                return None;
+            }
+            if let Some(advanced) = self.advance() {
+                return Some(advanced);
+            }
         }
     }
 }
@@ -315,5 +371,18 @@ mod tests {
         let two_big = "101\n110\n000".parse::<BitGrid>().unwrap();
         assert_eq!(one, one_big);
         assert_eq!(two, two_big);
+    }
+
+    #[test]
+    fn test_manhattan_iter() {
+        let test_grid = "010\n100\n101".parse::<BitGrid>().unwrap();
+        for (x, y, neighbors) in [
+            (0, 0, vec![(1, 0, true), (0, 1, true)]),
+            (1, 1, vec![(0, 1, true), (1, 0, true), (2, 1, false), (1, 2, false)]),
+            (1, 2, vec![(0, 2, true), (1, 1, false), (2, 2, true)])
+            ] {
+                let actual = test_grid.manhattan_neighbors(x, y).collect::<Vec<_>>();
+                assert_eq!(actual, neighbors);
+        }
     }
 }
