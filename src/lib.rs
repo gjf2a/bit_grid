@@ -75,6 +75,16 @@ impl BitGrid {
         }
     }
 
+    fn with_bits(&self, alt_bits: BitArray) -> Self {
+        Self {
+            min_x: self.min_x,
+            max_x: self.max_x,
+            min_y: self.min_y,
+            max_y: self.max_y,
+            bits: alt_bits
+        }
+    }
+
     pub fn zero_clone(&self) -> Self {
         Self::new(self.min_x, self.max_x, self.min_y, self.max_y)
     }
@@ -156,12 +166,16 @@ impl BitGrid {
             && self.max_y == other.max_y
     }
 
-    pub fn overlapping_counts(&self, other: &Self) -> Option<u64> {
+    pub fn overlaps(&self, other: &Self) -> Option<BitGrid> {
         if self.matching_dimensions(other) {
-            Some((&self.bits & &other.bits).count_bits_on())
+            Some(self.with_bits(&self.bits & &other.bits))
         } else {
             None
         }
+    }
+
+    pub fn overlapping_counts(&self, other: &Self) -> Option<u64> {
+        self.overlaps(other).map(|overlaps| overlaps.count_bits_on())
     }
 
     fn index_1d(&self, x: i64, y: i64) -> Option<u64> {
