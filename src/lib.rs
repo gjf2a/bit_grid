@@ -7,7 +7,7 @@ use std::{
 use bits::BitArray;
 
 #[derive(Clone, PartialEq, Eq, Debug)]
-pub struct BitGrid {
+pub struct GrowingBitGrid {
     bits: BitArray,
     min_x: i64,
     min_y: i64,
@@ -15,15 +15,15 @@ pub struct BitGrid {
     max_y: i64,
 }
 
-impl Default for BitGrid {
+impl Default for GrowingBitGrid {
     fn default() -> Self {
         Self::new(0, 0, 0, 0)
     }
 }
 
-impl FromIterator<(i64, i64, bool)> for BitGrid {
+impl FromIterator<(i64, i64, bool)> for GrowingBitGrid {
     fn from_iter<T: IntoIterator<Item = (i64, i64, bool)>>(iter: T) -> Self {
-        let mut result = BitGrid::default();
+        let mut result = GrowingBitGrid::default();
         for (x, y, value) in iter {
             result.set(x, y, value);
         }
@@ -31,7 +31,7 @@ impl FromIterator<(i64, i64, bool)> for BitGrid {
     }
 }
 
-impl FromStr for BitGrid {
+impl FromStr for GrowingBitGrid {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -50,7 +50,7 @@ impl FromStr for BitGrid {
     }
 }
 
-impl Display for BitGrid {
+impl Display for GrowingBitGrid {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for (x, y, value) in self.iter() {
             if y > self.min_y && x == self.min_x {
@@ -63,7 +63,7 @@ impl Display for BitGrid {
     }
 }
 
-impl BitGrid {
+impl GrowingBitGrid {
     pub fn new(min_x: i64, max_x: i64, min_y: i64, max_y: i64) -> Self {
         let num_zeros = span(min_x, max_x) * span(min_y, max_y);
         Self {
@@ -191,7 +191,7 @@ impl BitGrid {
             && self.max_y == other.max_y
     }
 
-    pub fn intersection(&self, other: &Self) -> Option<BitGrid> {
+    pub fn intersection(&self, other: &Self) -> Option<GrowingBitGrid> {
         if self.matching_dimensions(other) {
             Some(self.with_bits(&self.bits & &other.bits))
         } else {
@@ -199,7 +199,7 @@ impl BitGrid {
         }
     }
 
-    pub fn union(&self, other: &Self) -> Option<BitGrid> {
+    pub fn union(&self, other: &Self) -> Option<GrowingBitGrid> {
         if self.matching_dimensions(other) {
             Some(self.with_bits(&self.bits | &other.bits))
         } else {
@@ -240,7 +240,7 @@ struct CoordIter {
 }
 
 impl CoordIter {
-    fn from(value: &BitGrid) -> Self {
+    fn from(value: &GrowingBitGrid) -> Self {
         Self {
             max_y: value.max_y,
             min_x: value.min_x,
@@ -275,11 +275,11 @@ struct ManhattanIter<'a> {
     base_x: i64,
     base_y: i64,
     offset: usize,
-    grid: &'a BitGrid,
+    grid: &'a GrowingBitGrid,
 }
 
 impl<'a> ManhattanIter<'a> {
-    fn new(x: i64, y: i64, grid: &'a BitGrid) -> Self {
+    fn new(x: i64, y: i64, grid: &'a GrowingBitGrid) -> Self {
         Self {
             base_x: x,
             base_y: y,
@@ -318,7 +318,7 @@ mod tests {
     #[test]
     fn test_from_str() {
         let grid_str = "1101000\n1011000\n0010000\n";
-        let grid = grid_str.parse::<BitGrid>().unwrap();
+        let grid = grid_str.parse::<GrowingBitGrid>().unwrap();
         assert_eq!(format!("{grid}\n"), grid_str);
         assert_eq!(grid.height(), 3);
         assert_eq!(grid.width(), 7);
@@ -362,7 +362,7 @@ mod tests {
             .iter()
             .map(|(x, y, value)| ((*x, *y), *value))
             .collect::<HashMap<_, _>>();
-        let grid = pvs.iter().copied().collect::<BitGrid>();
+        let grid = pvs.iter().copied().collect::<GrowingBitGrid>();
         assert_eq!(grid.count_bits_on(), 2);
         assert_eq!(grid.width(), 9);
         assert_eq!(grid.height(), 10);
@@ -394,26 +394,26 @@ mod tests {
             ("111\n111", "111\n111", 6),
             ("000\n000", "000\n000", 0),
         ] {
-            let one = one.parse::<BitGrid>().unwrap();
-            let two = two.parse::<BitGrid>().unwrap();
+            let one = one.parse::<GrowingBitGrid>().unwrap();
+            let two = two.parse::<GrowingBitGrid>().unwrap();
             assert_eq!(count, one.overlapping_counts(&two).unwrap());
         }
     }
 
     #[test]
     fn test_match_sizes() {
-        let mut one = "01\n10\n11".parse::<BitGrid>().unwrap();
-        let mut two = "101\n110".parse::<BitGrid>().unwrap();
+        let mut one = "01\n10\n11".parse::<GrowingBitGrid>().unwrap();
+        let mut two = "101\n110".parse::<GrowingBitGrid>().unwrap();
         one.match_sizes(&mut two);
-        let one_big = "010\n100\n110".parse::<BitGrid>().unwrap();
-        let two_big = "101\n110\n000".parse::<BitGrid>().unwrap();
+        let one_big = "010\n100\n110".parse::<GrowingBitGrid>().unwrap();
+        let two_big = "101\n110\n000".parse::<GrowingBitGrid>().unwrap();
         assert_eq!(one, one_big);
         assert_eq!(two, two_big);
     }
 
     #[test]
     fn test_manhattan_iter() {
-        let test_grid = "010\n100\n101".parse::<BitGrid>().unwrap();
+        let test_grid = "010\n100\n101".parse::<GrowingBitGrid>().unwrap();
         for (x, y, neighbors) in [
             (
                 0,
@@ -443,7 +443,7 @@ mod tests {
         11111010101011011
         10110000001000011
         "
-        .parse::<BitGrid>()
+        .parse::<GrowingBitGrid>()
         .unwrap();
         let found = test_grid.ones_touching_zeros().collect::<BTreeSet<_>>();
         let expected = [
@@ -480,17 +480,17 @@ mod tests {
 
     #[test]
     fn test_union() {
-        let a: BitGrid = "101\n011\n000".parse().unwrap();
-        let b: BitGrid = "001\n101\n010".parse().unwrap();
-        let c: BitGrid = "101\n111\n010".parse().unwrap();
+        let a: GrowingBitGrid = "101\n011\n000".parse().unwrap();
+        let b: GrowingBitGrid = "001\n101\n010".parse().unwrap();
+        let c: GrowingBitGrid = "101\n111\n010".parse().unwrap();
         assert_eq!(a.union(&b).unwrap(), c);
     }
 
     #[test]
     fn test_intersection() {
-        let a: BitGrid = "101\n011\n000".parse().unwrap();
-        let b: BitGrid = "001\n101\n010".parse().unwrap();
-        let c: BitGrid = "001\n001\n000".parse().unwrap();
+        let a: GrowingBitGrid = "101\n011\n000".parse().unwrap();
+        let b: GrowingBitGrid = "001\n101\n010".parse().unwrap();
+        let c: GrowingBitGrid = "001\n001\n000".parse().unwrap();
         assert_eq!(a.intersection(&b).unwrap(), c);
     }
 }
