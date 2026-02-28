@@ -36,8 +36,8 @@ impl FromStr for BitGrid {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut result = Self::default();
-        for (y, row) in s.split("\n").enumerate() {
-            for (x, cell) in row.char_indices() {
+        for (y, row) in s.trim().split("\n").enumerate() {
+            for (x, cell) in row.trim().char_indices() {
                 let value = match cell {
                     '1' | 'X' | '*' => true,
                     '0' | 'O' | '.' => false,
@@ -97,6 +97,10 @@ impl BitGrid {
     pub fn ones(&self) -> impl Iterator<Item = (i64, i64)> {
         let xy: CoordIter = CoordIter::from(self);
         xy.filter(|(x, y)| self.is_set(*x, *y).unwrap_or(false))
+    }
+
+    pub fn ones_touching_zeros(&self) -> impl Iterator<Item = (i64, i64)> {
+        self.ones().filter(|(x, y)| self.manhattan_neighbors(*x, *y).filter(|(_,_,value)| *value).count() < 4)
     }
 
     pub fn manhattan_neighbors(&self, x: i64, y: i64) -> impl Iterator<Item = (i64, i64, bool)> {
@@ -288,7 +292,7 @@ fn span(min: i64, max: i64) -> i64 {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
+    use std::collections::{BTreeSet, HashMap};
 
     use super::*;
 
@@ -398,5 +402,19 @@ mod tests {
                 let actual = test_grid.manhattan_neighbors(x, y).collect::<Vec<_>>();
                 assert_eq!(actual, neighbors);
         }
+    }
+
+    #[test]
+    fn test_ones_touching_zeros() {
+        let test_grid = "
+        10100000100000011
+        11111010101011011
+        10110000001000011
+        ".parse::<BitGrid>().unwrap();
+        let found = test_grid.ones_touching_zeros().collect::<BTreeSet<_>>();
+        let expected = [(0, 0), (2, 0), (8, 0), (15, 0), (16, 0), (0, 1), (1, 1), (3, 1), (4, 1), (6, 1), (8, 1), (10, 1), (12, 1), (13, 1), (15, 1), (16, 1), (0, 2), (2, 2), (3, 2), (10, 2), (15, 2), (16, 2)].iter().copied().collect::<BTreeSet<_>>();
+        assert_eq!(expected, found);
+        let one_count = test_grid.count_bits_on();
+        assert_eq!(found.len() as u64 + 1, one_count);
     }
 }
