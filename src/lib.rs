@@ -81,7 +81,7 @@ impl BitGrid {
             max_x: self.max_x,
             min_y: self.min_y,
             max_y: self.max_y,
-            bits: alt_bits
+            bits: alt_bits,
         }
     }
 
@@ -91,16 +91,21 @@ impl BitGrid {
 
     pub fn iter(&self) -> impl Iterator<Item = (i64, i64, bool)> {
         let xy: CoordIter = CoordIter::from(self);
-        xy.map(|(x, y)| (x, y, self.is_set(x, y).unwrap()))
+        xy.map(|(x, y)| (x, y, self.is_set(x, y)))
     }
 
     pub fn ones(&self) -> impl Iterator<Item = (i64, i64)> {
         let xy: CoordIter = CoordIter::from(self);
-        xy.filter(|(x, y)| self.is_set(*x, *y).unwrap_or(false))
+        xy.filter(|(x, y)| self.is_set(*x, *y))
     }
 
     pub fn ones_touching_zeros(&self) -> impl Iterator<Item = (i64, i64)> {
-        self.ones().filter(|(x, y)| self.manhattan_neighbors(*x, *y).filter(|(_,_,value)| *value).count() < 4)
+        self.ones().filter(|(x, y)| {
+            self.manhattan_neighbors(*x, *y)
+                .filter(|(_, _, value)| *value)
+                .count()
+                < 4
+        })
     }
 
     pub fn manhattan_neighbors(&self, x: i64, y: i64) -> impl Iterator<Item = (i64, i64, bool)> {
@@ -115,8 +120,8 @@ impl BitGrid {
         self.index_1d(x, y).is_some()
     }
 
-    pub fn is_set(&self, x: i64, y: i64) -> Option<bool> {
-        self.index_1d(x, y).map(|i| self.bits.is_set(i))
+    pub fn is_set(&self, x: i64, y: i64) -> bool {
+        self.index_1d(x, y).map_or(false, |i| self.bits.is_set(i))
     }
 
     pub fn set(&mut self, x: i64, y: i64, value: bool) {
@@ -125,10 +130,26 @@ impl BitGrid {
                 self.bits.set(i, value);
             }
             None => {
-                let min_x = if x < self.min_x {x - self.width()} else {self.min_x};
-                let max_x = if x > self.max_x {x + self.width()} else {self.max_x};
-                let min_y = if y < self.min_y {y - self.height()} else {self.min_y};
-                let max_y = if y > self.max_y {y + self.height()} else {self.max_y};
+                let min_x = if x < self.min_x {
+                    x - self.width()
+                } else {
+                    self.min_x
+                };
+                let max_x = if x > self.max_x {
+                    x + self.width()
+                } else {
+                    self.max_x
+                };
+                let min_y = if y < self.min_y {
+                    y - self.height()
+                } else {
+                    self.min_y
+                };
+                let max_y = if y > self.max_y {
+                    y + self.height()
+                } else {
+                    self.max_y
+                };
                 self.resize(min_x, max_x, min_y, max_y);
                 self.bits.set(self.unchecked_index_1d(x, y), value);
             }
@@ -187,7 +208,8 @@ impl BitGrid {
     }
 
     pub fn overlapping_counts(&self, other: &Self) -> Option<u64> {
-        self.intersection(other).map(|overlaps| overlaps.count_bits_on())
+        self.intersection(other)
+            .map(|overlaps| overlaps.count_bits_on())
     }
 
     fn index_1d(&self, x: i64, y: i64) -> Option<u64> {
@@ -262,34 +284,23 @@ impl<'a> ManhattanIter<'a> {
             base_x: x,
             base_y: y,
             offset: 0,
-            grid
+            grid,
         }
-    }
-
-    fn done(&self) -> bool {
-        self.offset == MANHATTAN_OFFSETS.len()
-    }
-
-    fn advance(&mut self) -> Option<(i64, i64, bool)> {
-        let (offset_x, offset_y) = MANHATTAN_OFFSETS[self.offset];
-        let x = self.base_x + offset_x;
-        let y = self.base_y + offset_y;
-        self.offset += 1;
-        self.grid.is_set(x, y).map(|value| (x, y, value))
     }
 }
 
 impl<'a> Iterator for ManhattanIter<'a> {
     type Item = (i64, i64, bool);
-    
+
     fn next(&mut self) -> Option<Self::Item> {
-        loop {
-            if self.done() {
-                return None;
-            }
-            if let Some(advanced) = self.advance() {
-                return Some(advanced);
-            }
+        if self.offset == MANHATTAN_OFFSETS.len() {
+            None
+        } else {
+            let (offset_x, offset_y) = MANHATTAN_OFFSETS[self.offset];
+            let x = self.base_x + offset_x;
+            let y = self.base_y + offset_y;
+            self.offset += 1;
+            Some((x, y, self.grid.is_set(x, y)))
         }
     }
 }
@@ -325,14 +336,15 @@ mod tests {
             (1, 2, false),
             (2, 2, true),
             (3, 2, false),
-            (4, 1, false), 
+            (4, 1, false),
         ] {
-            assert_eq!(grid.is_set(x, y).unwrap(), value);
+            assert_eq!(grid.is_set(x, y), value);
             assert!(grid.in_bounds(x, y));
         }
 
+        // out of bounds - still false
         for (x, y) in [(-1, 0), (3, 3), (1, 3), (1, -3)] {
-            assert_eq!(grid.is_set(x, y), None);
+            assert_eq!(grid.is_set(x, y), false);
             assert!(!grid.in_bounds(x, y));
         }
 
@@ -403,12 +415,24 @@ mod tests {
     fn test_manhattan_iter() {
         let test_grid = "010\n100\n101".parse::<BitGrid>().unwrap();
         for (x, y, neighbors) in [
-            (0, 0, vec![(1, 0, true), (0, 1, true)]),
-            (1, 1, vec![(0, 1, true), (1, 0, true), (2, 1, false), (1, 2, false)]),
-            (1, 2, vec![(0, 2, true), (1, 1, false), (2, 2, true)])
-            ] {
-                let actual = test_grid.manhattan_neighbors(x, y).collect::<Vec<_>>();
-                assert_eq!(actual, neighbors);
+            (
+                0,
+                0,
+                vec![(-1, 0, false), (0, -1, false), (1, 0, true), (0, 1, true)],
+            ),
+            (
+                1,
+                1,
+                vec![(0, 1, true), (1, 0, true), (2, 1, false), (1, 2, false)],
+            ),
+            (
+                1,
+                2,
+                vec![(0, 2, true), (1, 1, false), (2, 2, true), (1, 3, false)],
+            ),
+        ] {
+            let actual = test_grid.manhattan_neighbors(x, y).collect::<Vec<_>>();
+            assert_eq!(actual, neighbors);
         }
     }
 
@@ -418,9 +442,37 @@ mod tests {
         10100000100000011
         11111010101011011
         10110000001000011
-        ".parse::<BitGrid>().unwrap();
+        "
+        .parse::<BitGrid>()
+        .unwrap();
         let found = test_grid.ones_touching_zeros().collect::<BTreeSet<_>>();
-        let expected = [(0, 0), (2, 0), (8, 0), (15, 0), (16, 0), (0, 1), (1, 1), (3, 1), (4, 1), (6, 1), (8, 1), (10, 1), (12, 1), (13, 1), (15, 1), (16, 1), (0, 2), (2, 2), (3, 2), (10, 2), (15, 2), (16, 2)].iter().copied().collect::<BTreeSet<_>>();
+        let expected = [
+            (0, 0),
+            (2, 0),
+            (8, 0),
+            (15, 0),
+            (16, 0),
+            (0, 1),
+            (1, 1),
+            (3, 1),
+            (4, 1),
+            (6, 1),
+            (8, 1),
+            (10, 1),
+            (12, 1),
+            (13, 1),
+            (15, 1),
+            (16, 1),
+            (0, 2),
+            (2, 2),
+            (3, 2),
+            (10, 2),
+            (15, 2),
+            (16, 2),
+        ]
+        .iter()
+        .copied()
+        .collect::<BTreeSet<_>>();
         assert_eq!(expected, found);
         let one_count = test_grid.count_bits_on();
         assert_eq!(found.len() as u64 + 1, one_count);
