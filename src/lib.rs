@@ -1,10 +1,225 @@
 use std::{
     cmp::{max, min},
     fmt::Display,
+    ops::{Add, AddAssign, Sub},
     str::FromStr,
 };
 
 use bits::BitArray;
+use num_traits::{One, Zero};
+use trait_set::trait_set;
+
+trait_set! {
+    pub trait BitGridIndex = Copy + Clone + Ord + PartialOrd + Eq + PartialEq + AddAssign + Zero + One + Add + Sub<Output = Self> + Display;
+}
+
+fn span<I: BitGridIndex>(min: I, max: I) -> I {
+    I::one() + max - min
+}
+
+pub trait BitGrid {
+    type Index: BitGridIndex;
+
+    fn bits(&self) -> &BitArray;
+    fn num_bits(&self) -> u64;
+    fn with_bits(&self, alt_bits: BitArray) -> Self;
+    fn matching_dimensions(&self, other: &Self) -> bool;
+    fn in_bounds(&self, x: Self::Index, y: Self::Index) -> bool;
+    fn is_set(&self, x: Self::Index, y: Self::Index) -> bool;
+    fn set(&mut self, x: Self::Index, y: Self::Index, value: bool);
+
+    fn min_x(&self) -> Self::Index;
+    fn max_x(&self) -> Self::Index;
+    fn min_y(&self) -> Self::Index;
+    fn max_y(&self) -> Self::Index;
+    fn coord_iter(&self) -> CoordIter<Self::Index>;
+
+    fn manhattan_neighbors(
+        &self,
+        x: Self::Index,
+        y: Self::Index,
+    ) -> impl Iterator<Item = (Self::Index, Self::Index, bool)>;
+
+    fn width(&self) -> Self::Index {
+        span(self.min_x(), self.max_x())
+    }
+
+    fn height(&self) -> Self::Index {
+        span(self.min_y(), self.max_y())
+    }
+
+    fn iter(&self) -> impl Iterator<Item = (Self::Index, Self::Index, bool)> {
+        self.coord_iter().map(|(x, y)| (x, y, self.is_set(x, y)))
+    }
+
+    fn ones(&self) -> impl Iterator<Item = (Self::Index, Self::Index)> {
+        self.coord_iter().filter(|(x, y)| self.is_set(*x, *y))
+    }
+
+    fn ones_touching_zeros(&self) -> impl Iterator<Item = (Self::Index, Self::Index)> {
+        self.ones().filter(|(x, y)| {
+            self.manhattan_neighbors(*x, *y)
+                .filter(|(_, _, value)| *value)
+                .count()
+                < 4
+        })
+    }
+
+    fn count_bits_on(&self) -> u64 {
+        self.bits().count_bits_on()
+    }
+
+    fn stringify(&self) -> String {
+        let mut s = String::new();
+        for (x, y, value) in self.iter() {
+            if y > self.min_y() && x == self.min_x() {
+                s.push('\n');
+            }
+            let c = if value { '1' } else { '0' };
+            s.push(c);
+        }
+        s
+    }
+
+    fn destringify<F: Fn(usize) -> Self::Index>(
+        &mut self,
+        indexer: F,
+        s: &str,
+    ) -> anyhow::Result<()> {
+        for (y, row) in s.trim().lines().enumerate() {
+            for (x, cell) in row.trim().char_indices() {
+                let value = match cell {
+                    '1' | 'X' | '*' => true,
+                    '0' | 'O' | '.' => false,
+                    _ => return Err(anyhow::anyhow!("Illegal char: {cell}")),
+                };
+                self.set(indexer(x), indexer(y), value);
+            }
+        }
+        Ok(())
+    }
+
+    fn zero_clone(&self) -> Self where Self: Sized {
+        self.with_bits(BitArray::zeros(self.num_bits()))
+    }
+
+}
+
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub struct FixedBitGrid {
+    bits: BitArray,
+    width: u64,
+    height: u64,
+}
+
+impl FixedBitGrid {
+    pub fn new(width: u64, height: u64) -> Self {
+        assert!(width >= 1 && height >= 1);
+        Self {
+            bits: BitArray::zeros(width * height),
+            width,
+            height,
+        }
+    }
+}
+
+fn height_width(s: &str) -> (usize, usize) {
+    (s.trim().lines().count(), s.trim().lines().next().unwrap().trim().chars().count())
+}
+
+impl FromStr for FixedBitGrid {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let (height, width) = height_width(s);
+        let mut result = Self::new(width as u64, height as u64);
+        result.destringify(|n| n as u64, s)?;
+        Ok(result)
+    }
+}
+
+impl Display for FixedBitGrid {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.stringify())
+    }
+}
+
+impl BitGrid for FixedBitGrid {
+    type Index = u64;
+
+    fn num_bits(&self) -> u64 {
+        self.width * self.height
+    }
+
+    fn with_bits(&self, alt_bits: BitArray) -> Self {
+        assert_eq!(alt_bits.len(), self.bits.len());
+        Self {
+            bits: alt_bits,
+            width: self.width,
+            height: self.height,
+        }
+    }
+
+    fn bits(&self) -> &BitArray {
+        &self.bits
+    }
+
+    fn count_bits_on(&self) -> u64 {
+        self.bits.count_bits_on()
+    }
+
+    fn manhattan_neighbors(
+        &self,
+        x: Self::Index,
+        y: Self::Index,
+    ) -> impl Iterator<Item = (Self::Index, Self::Index, bool)> {
+        manhattan_iter(x as i64, y as i64)
+            .filter(|(x, y)| *x >= 0 && *y >= 0)
+            .map(|(x, y)| (x as u64, y as u64, self.is_set(x as u64, y as u64)))
+    }
+
+    fn matching_dimensions(&self, other: &Self) -> bool {
+        todo!()
+    }
+
+    fn in_bounds(&self, x: Self::Index, y: Self::Index) -> bool {
+        todo!()
+    }
+
+    fn is_set(&self, x: Self::Index, y: Self::Index) -> bool {
+        todo!()
+    }
+
+    fn set(&mut self, x: Self::Index, y: Self::Index, value: bool) {
+        todo!()
+    }
+
+    fn coord_iter(&self) -> CoordIter<Self::Index> {
+        CoordIter {
+            max_y: self.height - 1,
+            min_x: 0,
+            max_x: self.width - 1,
+            x: 0,
+            y: 0,
+        }
+    }
+
+    fn min_x(&self) -> Self::Index {
+        0
+    }
+
+    fn max_x(&self) -> Self::Index {
+        self.width - 1
+    }
+
+    fn min_y(&self) -> Self::Index {
+        0
+    }
+
+    fn max_y(&self) -> Self::Index {
+        self.height - 1
+    }
+}
 
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct GrowingBitGrid {
@@ -23,8 +238,12 @@ impl Default for GrowingBitGrid {
 
 impl FromIterator<(i64, i64, bool)> for GrowingBitGrid {
     fn from_iter<T: IntoIterator<Item = (i64, i64, bool)>>(iter: T) -> Self {
-        let mut result = GrowingBitGrid::default();
-        for (x, y, value) in iter {
+        let mut points = vec![];
+        for v in iter {
+            points.push(v);
+        }
+        let mut result = Self::setup(&points);
+        for (x, y, value) in points {
             result.set(x, y, value);
         }
         result
@@ -35,96 +254,46 @@ impl FromStr for GrowingBitGrid {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let mut result = Self::default();
-        for (y, row) in s.trim().split("\n").enumerate() {
-            for (x, cell) in row.trim().char_indices() {
-                let value = match cell {
-                    '1' | 'X' | '*' => true,
-                    '0' | 'O' | '.' => false,
-                    _ => return Err(anyhow::anyhow!("Illegal char: {cell}")),
-                };
-                result.set(x as i64, y as i64, value);
-            }
-        }
+        let (height, width) = height_width(s);
+        println!("fs1");
+        let mut result = Self::new(0, width as i64 - 1, 0, height as i64 - 1);
+        println!("fs2: {:?}", result.x_min_x_max_y_min_y_max());
+        result.destringify(|n| n as i64, s)?;
+        println!("fs3");
         Ok(result)
     }
 }
 
 impl Display for GrowingBitGrid {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        for (x, y, value) in self.iter() {
-            if y > self.min_y && x == self.min_x {
-                write!(f, "\n")?;
-            }
-            let c = if value { '1' } else { '0' };
-            write!(f, "{c}")?;
-        }
-        Ok(())
+        write!(f, "{}", self.stringify())
     }
 }
 
-impl GrowingBitGrid {
-    pub fn new(min_x: i64, max_x: i64, min_y: i64, max_y: i64) -> Self {
-        let num_zeros = span(min_x, max_x) * span(min_y, max_y);
-        Self {
-            min_x,
-            max_x,
-            min_y,
-            max_y,
-            bits: BitArray::zeros(num_zeros as u64),
-        }
+impl BitGrid for GrowingBitGrid {
+    type Index = i64;
+
+    fn num_bits(&self) -> u64 {
+        self.width() as u64 * self.height() as u64
     }
 
-    fn with_bits(&self, alt_bits: BitArray) -> Self {
-        Self {
-            min_x: self.min_x,
-            max_x: self.max_x,
-            min_y: self.min_y,
-            max_y: self.max_y,
-            bits: alt_bits,
-        }
+    fn manhattan_neighbors(&self, x: i64, y: i64) -> impl Iterator<Item = (i64, i64, bool)> {
+        manhattan_iter(x, y).map(|(x, y)| (x, y, self.is_set(x, y)))
     }
 
-    pub fn zero_clone(&self) -> Self {
-        Self::new(self.min_x, self.max_x, self.min_y, self.max_y)
+    fn bits(&self) -> &BitArray {
+        &self.bits
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = (i64, i64, bool)> {
-        let xy: CoordIter = CoordIter::from(self);
-        xy.map(|(x, y)| (x, y, self.is_set(x, y)))
+    fn in_bounds(&self, x: i64, y: i64) -> bool {
+        self.min_x <= x && x <= self.max_x && self.min_y <= y && y <= self.max_y
     }
 
-    pub fn ones(&self) -> impl Iterator<Item = (i64, i64)> {
-        let xy: CoordIter = CoordIter::from(self);
-        xy.filter(|(x, y)| self.is_set(*x, *y))
-    }
-
-    pub fn ones_touching_zeros(&self) -> impl Iterator<Item = (i64, i64)> {
-        self.ones().filter(|(x, y)| {
-            self.manhattan_neighbors(*x, *y)
-                .filter(|(_, _, value)| *value)
-                .count()
-                < 4
-        })
-    }
-
-    pub fn manhattan_neighbors(&self, x: i64, y: i64) -> impl Iterator<Item = (i64, i64, bool)> {
-        ManhattanIter::new(x, y, self)
-    }
-
-    pub fn count_bits_on(&self) -> u64 {
-        self.bits.count_bits_on()
-    }
-
-    pub fn in_bounds(&self, x: i64, y: i64) -> bool {
-        self.index_1d(x, y).is_some()
-    }
-
-    pub fn is_set(&self, x: i64, y: i64) -> bool {
+    fn is_set(&self, x: i64, y: i64) -> bool {
         self.index_1d(x, y).map_or(false, |i| self.bits.is_set(i))
     }
 
-    pub fn set(&mut self, x: i64, y: i64, value: bool) {
+    fn set(&mut self, x: i64, y: i64, value: bool) {
         match self.index_1d(x, y) {
             Some(i) => {
                 self.bits.set(i, value);
@@ -156,6 +325,79 @@ impl GrowingBitGrid {
         }
     }
 
+    fn width(&self) -> i64 {
+        span(self.min_x, self.max_x)
+    }
+
+    fn height(&self) -> i64 {
+        span(self.min_y, self.max_y)
+    }
+
+    fn matching_dimensions(&self, other: &Self) -> bool {
+        self.min_x == other.min_x
+            && self.min_y == other.min_y
+            && self.max_x == other.max_x
+            && self.max_y == other.max_y
+    }
+
+    fn coord_iter(&self) -> CoordIter<Self::Index> {
+        CoordIter {
+            max_y: self.max_y,
+            min_x: self.min_x,
+            max_x: self.max_x,
+            x: self.min_x,
+            y: self.min_y,
+        }
+    }
+
+    fn min_x(&self) -> Self::Index {
+        self.min_x
+    }
+
+    fn max_x(&self) -> Self::Index {
+        self.max_x
+    }
+
+    fn min_y(&self) -> Self::Index {
+        self.min_y
+    }
+
+    fn max_y(&self) -> Self::Index {
+        self.max_y
+    }
+
+    fn with_bits(&self, alt_bits: BitArray) -> Self {
+        assert_eq!(alt_bits.len(), self.num_bits());
+        Self {
+            min_x: self.min_x,
+            max_x: self.max_x,
+            min_y: self.min_y,
+            max_y: self.max_y,
+            bits: alt_bits,
+        }
+    }
+}
+
+impl GrowingBitGrid {
+    pub fn new(min_x: i64, max_x: i64, min_y: i64, max_y: i64) -> Self {
+        let num_zeros = span(min_x, max_x) * span(min_y, max_y);
+        Self {
+            min_x,
+            max_x,
+            min_y,
+            max_y,
+            bits: BitArray::zeros(num_zeros as u64),
+        }
+    }
+
+    fn setup(points: &Vec<(i64, i64, bool)>) -> Self {
+        let min_x = points.iter().map(|v| v.0).min().unwrap();
+        let max_x = points.iter().map(|v| v.0).max().unwrap();
+        let min_y = points.iter().map(|v| v.1).min().unwrap();
+        let max_y = points.iter().map(|v| v.1).max().unwrap();
+        Self::new(min_x, max_x, min_y, max_y)
+    }
+
     pub fn match_sizes(&mut self, other: &mut Self) {
         let min_x = min(self.min_x, other.min_x);
         let max_x = max(self.max_x, other.max_x);
@@ -174,21 +416,6 @@ impl GrowingBitGrid {
             }
             std::mem::swap(&mut new_self, self);
         }
-    }
-
-    pub fn width(&self) -> i64 {
-        span(self.min_x, self.max_x)
-    }
-
-    pub fn height(&self) -> i64 {
-        span(self.min_y, self.max_y)
-    }
-
-    pub fn matching_dimensions(&self, other: &Self) -> bool {
-        self.min_x == other.min_x
-            && self.min_y == other.min_y
-            && self.max_x == other.max_x
-            && self.max_y == other.max_y
     }
 
     pub fn intersection(&self, other: &Self) -> Option<GrowingBitGrid> {
@@ -213,7 +440,7 @@ impl GrowingBitGrid {
     }
 
     fn index_1d(&self, x: i64, y: i64) -> Option<u64> {
-        if self.min_x <= x && x <= self.max_x && self.min_y <= y && y <= self.max_y {
+        if self.in_bounds(x, y) {
             Some(self.unchecked_index_1d(x, y))
         } else {
             None
@@ -231,38 +458,26 @@ impl GrowingBitGrid {
     }
 }
 
-struct CoordIter {
-    max_y: i64,
-    min_x: i64,
-    max_x: i64,
-    x: i64,
-    y: i64,
+pub struct CoordIter<I: BitGridIndex> {
+    max_y: I,
+    min_x: I,
+    max_x: I,
+    x: I,
+    y: I,
 }
 
-impl CoordIter {
-    fn from(value: &GrowingBitGrid) -> Self {
-        Self {
-            max_y: value.max_y,
-            min_x: value.min_x,
-            max_x: value.max_x,
-            x: value.min_x,
-            y: value.min_y,
-        }
-    }
-}
-
-impl Iterator for CoordIter {
-    type Item = (i64, i64);
+impl<I: BitGridIndex> Iterator for CoordIter<I> {
+    type Item = (I, I);
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.y > self.max_y {
             None
         } else {
             let result = Some((self.x, self.y));
-            self.x += 1;
+            self.x += I::one();
             if self.x > self.max_x {
                 self.x = self.min_x;
-                self.y += 1;
+                self.y += I::one();
             }
             result
         }
@@ -271,42 +486,11 @@ impl Iterator for CoordIter {
 
 const MANHATTAN_OFFSETS: [(i64, i64); 4] = [(-1, 0), (0, -1), (1, 0), (0, 1)];
 
-struct ManhattanIter<'a> {
-    base_x: i64,
-    base_y: i64,
-    offset: usize,
-    grid: &'a GrowingBitGrid,
-}
-
-impl<'a> ManhattanIter<'a> {
-    fn new(x: i64, y: i64, grid: &'a GrowingBitGrid) -> Self {
-        Self {
-            base_x: x,
-            base_y: y,
-            offset: 0,
-            grid,
-        }
-    }
-}
-
-impl<'a> Iterator for ManhattanIter<'a> {
-    type Item = (i64, i64, bool);
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.offset == MANHATTAN_OFFSETS.len() {
-            None
-        } else {
-            let (offset_x, offset_y) = MANHATTAN_OFFSETS[self.offset];
-            let x = self.base_x + offset_x;
-            let y = self.base_y + offset_y;
-            self.offset += 1;
-            Some((x, y, self.grid.is_set(x, y)))
-        }
-    }
-}
-
-fn span(min: i64, max: i64) -> i64 {
-    max - min + 1
+fn manhattan_iter(x: i64, y: i64) -> impl Iterator<Item = (i64, i64)> {
+    MANHATTAN_OFFSETS
+        .iter()
+        .copied()
+        .map(move |(off_x, off_y)| (off_x + x, off_y + y))
 }
 
 #[cfg(test)]
@@ -357,15 +541,18 @@ mod tests {
 
     #[test]
     fn test_from_iter() {
+        println!("start");
         let pvs = [(2, 2, true), (-1, 3, false), (3, -2, true)];
         let test_points = pvs
             .iter()
             .map(|(x, y, value)| ((*x, *y), *value))
             .collect::<HashMap<_, _>>();
+        println!("collected");
         let grid = pvs.iter().copied().collect::<GrowingBitGrid>();
         assert_eq!(grid.count_bits_on(), 2);
         assert_eq!(grid.width(), 9);
         assert_eq!(grid.height(), 10);
+        println!("there");
         for (x, y, value) in grid.iter() {
             match test_points.get(&(x, y)) {
                 Some(expected) => {
@@ -376,6 +563,7 @@ mod tests {
                 }
             }
         }
+        println!("here");
 
         let zeros = grid.zero_clone();
         assert!(zeros.matching_dimensions(&grid));
@@ -488,9 +676,13 @@ mod tests {
 
     #[test]
     fn test_intersection() {
+        println!("hi");
         let a: GrowingBitGrid = "101\n011\n000".parse().unwrap();
+        println!("hi2");
         let b: GrowingBitGrid = "001\n101\n010".parse().unwrap();
+        println!("hi3");
         let c: GrowingBitGrid = "001\n001\n000".parse().unwrap();
+        println!("hi4");
         assert_eq!(a.intersection(&b).unwrap(), c);
     }
 }

@@ -6,3 +6,5 @@ edition = "2024"
 [dependencies]
 bits = {git = "https://github.com/gjf2a/bits"}
 anyhow = "1.0.101"
+trait-set = "0.3"
+num-traits = "0.2"
