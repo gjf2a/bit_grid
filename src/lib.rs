@@ -170,7 +170,7 @@ impl BitGrid {
             && self.max_y == other.max_y
     }
 
-    pub fn overlaps(&self, other: &Self) -> Option<BitGrid> {
+    pub fn intersection(&self, other: &Self) -> Option<BitGrid> {
         if self.matching_dimensions(other) {
             Some(self.with_bits(&self.bits & &other.bits))
         } else {
@@ -178,8 +178,16 @@ impl BitGrid {
         }
     }
 
+    pub fn union(&self, other: &Self) -> Option<BitGrid> {
+        if self.matching_dimensions(other) {
+            Some(self.with_bits(&self.bits | &other.bits))
+        } else {
+            None
+        }
+    }
+
     pub fn overlapping_counts(&self, other: &Self) -> Option<u64> {
-        self.overlaps(other).map(|overlaps| overlaps.count_bits_on())
+        self.intersection(other).map(|overlaps| overlaps.count_bits_on())
     }
 
     fn index_1d(&self, x: i64, y: i64) -> Option<u64> {
@@ -416,5 +424,21 @@ mod tests {
         assert_eq!(expected, found);
         let one_count = test_grid.count_bits_on();
         assert_eq!(found.len() as u64 + 1, one_count);
+    }
+
+    #[test]
+    fn test_union() {
+        let a: BitGrid = "101\n011\n000".parse().unwrap();
+        let b: BitGrid = "001\n101\n010".parse().unwrap();
+        let c: BitGrid = "101\n111\n010".parse().unwrap();
+        assert_eq!(a.union(&b).unwrap(), c);
+    }
+
+    #[test]
+    fn test_intersection() {
+        let a: BitGrid = "101\n011\n000".parse().unwrap();
+        let b: BitGrid = "001\n101\n010".parse().unwrap();
+        let c: BitGrid = "001\n001\n000".parse().unwrap();
+        assert_eq!(a.intersection(&b).unwrap(), c);
     }
 }
