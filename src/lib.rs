@@ -24,7 +24,6 @@ pub trait BitGrid {
     fn num_bits(&self) -> u64;
     fn with_bits(&self, alt_bits: BitArray) -> Self;
     fn matching_dimensions(&self, other: &Self) -> bool;
-    fn in_bounds(&self, x: Self::Index, y: Self::Index) -> bool;
     fn is_set(&self, x: Self::Index, y: Self::Index) -> bool;
     fn set(&mut self, x: Self::Index, y: Self::Index, value: bool);
 
@@ -33,6 +32,10 @@ pub trait BitGrid {
     fn min_y(&self) -> Self::Index;
     fn max_y(&self) -> Self::Index;
     fn coord_iter(&self) -> CoordIter<Self::Index>;
+
+    fn in_bounds(&self, x: Self::Index, y: Self::Index) -> bool {
+        self.min_x() <= x && x <= self.max_x() && self.min_y() <= y && y <= self.max_y()
+    }
 
     fn manhattan_neighbors(
         &self,
@@ -103,6 +106,26 @@ pub trait BitGrid {
         self.with_bits(BitArray::zeros(self.num_bits()))
     }
 
+    fn intersection(&self, other: &Self) -> Option<Self> where Self: Sized {
+        if self.matching_dimensions(other) {
+            Some(self.with_bits(self.bits() & other.bits()))
+        } else {
+            None
+        }
+    }
+
+    fn union(&self, other: &Self) -> Option<Self> where Self: Sized {
+        if self.matching_dimensions(other) {
+            Some(self.with_bits(self.bits() | other.bits()))
+        } else {
+            None
+        }
+    }
+
+    fn overlapping_counts(&self, other: &Self) -> Option<u64> where Self: Sized {
+        self.intersection(other)
+            .map(|overlaps| overlaps.count_bits_on())
+    }
 }
 
 #[derive(Clone, PartialEq, Eq, Debug)]
@@ -120,6 +143,10 @@ impl FixedBitGrid {
             width,
             height,
         }
+    }
+
+    fn index_1d(&self, x: u64, y: u64) -> u64 {
+        y * self.width() + x
     }
 }
 
@@ -179,19 +206,20 @@ impl BitGrid for FixedBitGrid {
     }
 
     fn matching_dimensions(&self, other: &Self) -> bool {
-        todo!()
-    }
-
-    fn in_bounds(&self, x: Self::Index, y: Self::Index) -> bool {
-        todo!()
+        self.width == other.width && self.height == other.height
     }
 
     fn is_set(&self, x: Self::Index, y: Self::Index) -> bool {
-        todo!()
+        if self.in_bounds(x, y) {
+            self.bits.is_set(self.index_1d(x, y))
+        } else {
+            false
+        }
     }
 
     fn set(&mut self, x: Self::Index, y: Self::Index, value: bool) {
-        todo!()
+        assert!(self.in_bounds(x, y));
+        self.bits.set(self.index_1d(x, y), value);
     }
 
     fn coord_iter(&self) -> CoordIter<Self::Index> {
@@ -280,10 +308,6 @@ impl BitGrid for GrowingBitGrid {
 
     fn bits(&self) -> &BitArray {
         &self.bits
-    }
-
-    fn in_bounds(&self, x: i64, y: i64) -> bool {
-        self.min_x <= x && x <= self.max_x && self.min_y <= y && y <= self.max_y
     }
 
     fn is_set(&self, x: i64, y: i64) -> bool {
@@ -413,27 +437,6 @@ impl GrowingBitGrid {
             }
             std::mem::swap(&mut new_self, self);
         }
-    }
-
-    pub fn intersection(&self, other: &Self) -> Option<GrowingBitGrid> {
-        if self.matching_dimensions(other) {
-            Some(self.with_bits(&self.bits & &other.bits))
-        } else {
-            None
-        }
-    }
-
-    pub fn union(&self, other: &Self) -> Option<GrowingBitGrid> {
-        if self.matching_dimensions(other) {
-            Some(self.with_bits(&self.bits | &other.bits))
-        } else {
-            None
-        }
-    }
-
-    pub fn overlapping_counts(&self, other: &Self) -> Option<u64> {
-        self.intersection(other)
-            .map(|overlaps| overlaps.count_bits_on())
     }
 
     fn index_1d(&self, x: i64, y: i64) -> Option<u64> {
