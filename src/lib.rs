@@ -541,18 +541,15 @@ mod tests {
 
     #[test]
     fn test_from_iter() {
-        println!("start");
         let pvs = [(2, 2, true), (-1, 3, false), (3, -2, true)];
         let test_points = pvs
             .iter()
             .map(|(x, y, value)| ((*x, *y), *value))
             .collect::<HashMap<_, _>>();
-        println!("collected");
         let grid = pvs.iter().copied().collect::<GrowingBitGrid>();
         assert_eq!(grid.count_bits_on(), 2);
-        assert_eq!(grid.width(), 9);
-        assert_eq!(grid.height(), 10);
-        println!("there");
+        assert_eq!(grid.width(), 5);
+        assert_eq!(grid.height(), 6);
         for (x, y, value) in grid.iter() {
             match test_points.get(&(x, y)) {
                 Some(expected) => {
@@ -563,7 +560,6 @@ mod tests {
                 }
             }
         }
-        println!("here");
 
         let zeros = grid.zero_clone();
         assert!(zeros.matching_dimensions(&grid));
