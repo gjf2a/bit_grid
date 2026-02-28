@@ -255,11 +255,8 @@ impl FromStr for GrowingBitGrid {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let (height, width) = height_width(s);
-        println!("fs1");
         let mut result = Self::new(0, width as i64 - 1, 0, height as i64 - 1);
-        println!("fs2: {:?}", result.x_min_x_max_y_min_y_max());
         result.destringify(|n| n as i64, s)?;
-        println!("fs3");
         Ok(result)
     }
 }
@@ -672,13 +669,46 @@ mod tests {
 
     #[test]
     fn test_intersection() {
-        println!("hi");
         let a: GrowingBitGrid = "101\n011\n000".parse().unwrap();
-        println!("hi2");
         let b: GrowingBitGrid = "001\n101\n010".parse().unwrap();
-        println!("hi3");
         let c: GrowingBitGrid = "001\n001\n000".parse().unwrap();
-        println!("hi4");
         assert_eq!(a.intersection(&b).unwrap(), c);
+    }
+
+    #[test]
+    fn test_resize() {
+        let mut a: GrowingBitGrid = "101\n011\n000".parse().unwrap();
+        a.set(-2, -2, true);
+        let ex1 = "00000000
+00000000
+00000000
+00010000
+00000000
+00000101
+00000011
+00000000";
+        assert_eq!(ex1, format!("{a}").as_str());
+        assert_eq!(a.x_min_x_max_y_min_y_max(), (-5, 2, -5, 2));
+        a.set(-2, 3, true);
+
+        let ex2 = "00000000
+00000000
+00000000
+00010000
+00000000
+00000101
+00000011
+00000000
+00010000
+00000000
+00000000
+00000000
+00000000
+00000000
+00000000
+00000000
+00000000";
+        assert_eq!(ex2, format!("{a}").as_str());
+        assert_eq!(a.x_min_x_max_y_min_y_max(), (-5, 2, -5, 11));
     }
 }
