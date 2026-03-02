@@ -419,6 +419,10 @@ impl GrowingBitGrid {
         Self::new(min_x, max_x, min_y, max_y)
     }
 
+    pub fn downsize_to(&mut self, reference: &Self) {
+        self.resize(reference.min_x, reference.max_x, reference.min_y, reference.max_y);
+    }
+
     pub fn match_sizes(&mut self, other: &mut Self) {
         let min_x = min(self.min_x, other.min_x);
         let max_x = max(self.max_x, other.max_x);
