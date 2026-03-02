@@ -437,7 +437,9 @@ impl GrowingBitGrid {
         {
             let mut new_self = Self::new(min_x, max_x, min_y, max_y);
             for (x, y, value) in self.iter() {
-                new_self.bits.set(new_self.unchecked_index_1d(x, y), value);
+                if new_self.in_bounds(x, y) {
+                    new_self.bits.set(new_self.unchecked_index_1d(x, y), value);
+                }
             }
             std::mem::swap(&mut new_self, self);
         }
@@ -717,5 +719,24 @@ mod tests {
 00000000";
         assert_eq!(ex2, format!("{a}").as_str());
         assert_eq!(a.x_min_x_max_y_min_y_max(), (-5, 2, -5, 11));
+    }
+
+    #[test]
+    fn test_downsize_to() {
+        let a: GrowingBitGrid = "101\n011\n000".parse().unwrap();
+        let b: GrowingBitGrid = "00\n10\n01".parse().unwrap();
+        let c: GrowingBitGrid = "010\n101".parse().unwrap();
+        let mut aa = a.clone();
+        aa.downsize_to(&a);
+        assert_eq!(a, aa);
+        let ex1: GrowingBitGrid = "10\n01\n00".parse().unwrap();
+        let mut a1 = a.clone();
+        a1.downsize_to(&b);
+        println!("a1: {a1}"); 
+        assert_eq!(a1, ex1);
+        let ex2: GrowingBitGrid = "101\n011".parse().unwrap();
+        let mut a2 = a.clone();
+        a2.downsize_to(&c);
+        assert_eq!(a2, ex2);
     }
 }
