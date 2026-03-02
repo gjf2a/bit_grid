@@ -33,6 +33,12 @@ pub trait BitGrid {
     fn max_y(&self) -> Self::Index;
     fn coord_iter(&self) -> CoordIter<Self::Index>;
 
+    fn words_used(&self) -> u64 {
+        let base = self.bits().len() / 64;
+        let extra = if self.bits().len() % 64 > 0 {1} else {0};
+        base + extra
+    }
+
     fn in_bounds(&self, x: Self::Index, y: Self::Index) -> bool {
         self.min_x() <= x && x <= self.max_x() && self.min_y() <= y && y <= self.max_y()
     }
@@ -666,6 +672,8 @@ mod tests {
         assert_eq!(expected, found);
         let one_count = test_grid.count_bits_on();
         assert_eq!(found.len() as u64 + 1, one_count);
+        assert_eq!(51, test_grid.bits().len());
+        assert_eq!(1, test_grid.words_used());
     }
 
     #[test]
@@ -687,7 +695,11 @@ mod tests {
     #[test]
     fn test_resize() {
         let mut a: GrowingBitGrid = "101\n011\n000".parse().unwrap();
+        assert_eq!(9, a.bits().len());
+        assert_eq!(1, a.words_used());
         a.set(-2, -2, true);
+        assert_eq!(64, a.bits.len());
+        assert_eq!(1, a.words_used());
         let ex1 = "00000000
 00000000
 00000000
@@ -719,6 +731,8 @@ mod tests {
 00000000";
         assert_eq!(ex2, format!("{a}").as_str());
         assert_eq!(a.x_min_x_max_y_min_y_max(), (-5, 2, -5, 11));
+        assert_eq!(136, a.bits.len());
+        assert_eq!(3, a.words_used());
     }
 
     #[test]
