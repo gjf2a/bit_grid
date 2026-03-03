@@ -71,11 +71,11 @@ impl Display for BitGrid {
 }
 
 impl BitGrid {
-    fn num_bits(&self) -> u64 {
+    pub fn num_bits(&self) -> u64 {
         self.width() as u64 * self.height() as u64
     }
 
-    fn manhattan_neighbors(&self, x: i64, y: i64) -> impl Iterator<Item = (i64, i64, bool)> {
+    pub fn manhattan_neighbors(&self, x: i64, y: i64) -> impl Iterator<Item = (i64, i64, bool)> {
         manhattan_iter(x, y).map(|(x, y)| (x, y, self.is_set(x, y)))
     }
 
@@ -83,11 +83,11 @@ impl BitGrid {
         &self.bits
     }
 
-    fn is_set(&self, x: i64, y: i64) -> bool {
+    pub fn is_set(&self, x: i64, y: i64) -> bool {
         self.index_1d(x, y).map_or(false, |i| self.bits.is_set(i))
     }
 
-    fn set(&mut self, x: i64, y: i64, value: bool) {
+    pub fn set(&mut self, x: i64, y: i64, value: bool) {
         match self.index_1d(x, y) {
             Some(i) => {
                 self.bits.set(i, value);
@@ -103,22 +103,22 @@ impl BitGrid {
         }
     }
 
-    fn width(&self) -> i64 {
+    pub fn width(&self) -> i64 {
         span(self.min_x, self.max_x)
     }
 
-    fn height(&self) -> i64 {
+    pub fn height(&self) -> i64 {
         span(self.min_y, self.max_y)
     }
 
-    fn matching_dimensions(&self, other: &Self) -> bool {
+    pub fn matching_dimensions(&self, other: &Self) -> bool {
         self.min_x == other.min_x
             && self.min_y == other.min_y
             && self.max_x == other.max_x
             && self.max_y == other.max_y
     }
 
-    fn coord_iter(&self) -> CoordIter<i64> {
+    pub fn coord_iter(&self) -> CoordIter<i64> {
         CoordIter {
             max_y: self.max_y,
             min_x: self.min_x,
@@ -128,23 +128,23 @@ impl BitGrid {
         }
     }
 
-    fn min_x(&self) -> i64 {
+    pub fn min_x(&self) -> i64 {
         self.min_x
     }
 
-    fn max_x(&self) -> i64 {
+    pub fn max_x(&self) -> i64 {
         self.max_x
     }
 
-    fn min_y(&self) -> i64 {
+    pub fn min_y(&self) -> i64 {
         self.min_y
     }
 
-    fn max_y(&self) -> i64 {
+    pub fn max_y(&self) -> i64 {
         self.max_y
     }
 
-    fn with_bits(&self, alt_bits: BitArray) -> Self {
+    pub fn with_bits(&self, alt_bits: BitArray) -> Self {
         assert_eq!(alt_bits.len(), self.num_bits());
         Self {
             min_x: self.min_x,
@@ -161,11 +161,11 @@ impl BitGrid {
         base + extra
     }
 
-    fn in_bounds(&self, x: i64, y: i64) -> bool {
+    pub fn in_bounds(&self, x: i64, y: i64) -> bool {
         self.min_x() <= x && x <= self.max_x() && self.min_y() <= y && y <= self.max_y()
     }
 
-    fn iter(&self) -> impl Iterator<Item = (i64, i64, bool)> {
+    pub fn iter(&self) -> impl Iterator<Item = (i64, i64, bool)> {
         self.coord_iter().map(|(x, y)| (x, y, self.is_set(x, y)))
     }
 
@@ -213,15 +213,11 @@ impl BitGrid {
     }
 
     pub fn zero_clone(&self) -> Self
-    where
-        Self: Sized,
     {
         self.with_bits(BitArray::zeros(self.num_bits()))
     }
 
     pub fn intersection(&self, other: &Self) -> Option<Self>
-    where
-        Self: Sized,
     {
         if self.matching_dimensions(other) {
             Some(self.with_bits(self.bits() & other.bits()))
@@ -231,8 +227,6 @@ impl BitGrid {
     }
 
     pub fn union(&self, other: &Self) -> Option<Self>
-    where
-        Self: Sized,
     {
         if self.matching_dimensions(other) {
             Some(self.with_bits(self.bits() | other.bits()))
@@ -242,8 +236,6 @@ impl BitGrid {
     }
 
     pub fn overlapping_counts(&self, other: &Self) -> Option<u64>
-    where
-        Self: Sized,
     {
         self.intersection(other)
             .map(|overlaps| overlaps.count_bits_on())
