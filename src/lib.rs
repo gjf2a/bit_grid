@@ -134,125 +134,8 @@ pub trait BitGrid {
     }
 }
 
-#[derive(Clone, PartialEq, Eq, Debug)]
-pub struct FixedBitGrid {
-    bits: BitArray,
-    width: u64,
-    height: u64,
-}
-
-impl FixedBitGrid {
-    pub fn new(width: u64, height: u64) -> Self {
-        assert!(width >= 1 && height >= 1);
-        Self {
-            bits: BitArray::zeros(width * height),
-            width,
-            height,
-        }
-    }
-
-    fn index_1d(&self, x: u64, y: u64) -> u64 {
-        y * self.width() + x
-    }
-}
-
 fn height_width(s: &str) -> (usize, usize) {
     (s.trim().lines().count(), s.trim().lines().next().unwrap().trim().chars().count())
-}
-
-impl FromStr for FixedBitGrid {
-    type Err = anyhow::Error;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let (height, width) = height_width(s);
-        let mut result = Self::new(width as u64, height as u64);
-        result.destringify(|n| n as u64, s)?;
-        Ok(result)
-    }
-}
-
-impl Display for FixedBitGrid {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.stringify())
-    }
-}
-
-impl BitGrid for FixedBitGrid {
-    type Index = u64;
-
-    fn num_bits(&self) -> u64 {
-        self.width * self.height
-    }
-
-    fn with_bits(&self, alt_bits: BitArray) -> Self {
-        assert_eq!(alt_bits.len(), self.bits.len());
-        Self {
-            bits: alt_bits,
-            width: self.width,
-            height: self.height,
-        }
-    }
-
-    fn bits(&self) -> &BitArray {
-        &self.bits
-    }
-
-    fn count_bits_on(&self) -> u64 {
-        self.bits.count_bits_on()
-    }
-
-    fn manhattan_neighbors(
-        &self,
-        x: Self::Index,
-        y: Self::Index,
-    ) -> impl Iterator<Item = (Self::Index, Self::Index, bool)> {
-        manhattan_iter(x as i64, y as i64)
-            .filter(|(x, y)| *x >= 0 && *y >= 0)
-            .map(|(x, y)| (x as u64, y as u64, self.is_set(x as u64, y as u64)))
-    }
-
-    fn matching_dimensions(&self, other: &Self) -> bool {
-        self.width == other.width && self.height == other.height
-    }
-
-    fn is_set(&self, x: Self::Index, y: Self::Index) -> bool {
-        if self.in_bounds(x, y) {
-            self.bits.is_set(self.index_1d(x, y))
-        } else {
-            false
-        }
-    }
-
-    fn set(&mut self, x: Self::Index, y: Self::Index, value: bool) {
-        assert!(self.in_bounds(x, y));
-        self.bits.set(self.index_1d(x, y), value);
-    }
-
-    fn coord_iter(&self) -> CoordIter<Self::Index> {
-        CoordIter {
-            max_y: self.height - 1,
-            min_x: 0,
-            max_x: self.width - 1,
-            x: 0,
-            y: 0,
-        }
-    }
-
-    fn min_x(&self) -> Self::Index {
-        0
-    }
-
-    fn max_x(&self) -> Self::Index {
-        self.width - 1
-    }
-
-    fn min_y(&self) -> Self::Index {
-        0
-    }
-
-    fn max_y(&self) -> Self::Index {
-        self.height - 1
-    }
 }
 
 #[derive(Clone, PartialEq, Eq, Debug)]
@@ -682,41 +565,18 @@ mod tests {
         assert_eq!(9, a.bits().len());
         assert_eq!(1, a.words_used());
         a.set(-2, -2, true);
-        assert_eq!(64, a.bits.len());
+        assert_eq!(25, a.bits.len());
         assert_eq!(1, a.words_used());
-        let ex1 = "00000000
-00000000
-00000000
-00010000
-00000000
-00000101
-00000011
-00000000";
+        let ex1 = "10000\n00000\n00101\n00011\n00000";
         assert_eq!(ex1, format!("{a}").as_str());
-        assert_eq!(a.x_min_x_max_y_min_y_max(), (-5, 2, -5, 2));
+        assert_eq!(a.x_min_x_max_y_min_y_max(), (-2, 2, -2, 2));
         a.set(-2, 3, true);
 
-        let ex2 = "00000000
-00000000
-00000000
-00010000
-00000000
-00000101
-00000011
-00000000
-00010000
-00000000
-00000000
-00000000
-00000000
-00000000
-00000000
-00000000
-00000000";
+        let ex2 = "10000\n00000\n00101\n00011\n00000\n10000";
         assert_eq!(ex2, format!("{a}").as_str());
-        assert_eq!(a.x_min_x_max_y_min_y_max(), (-5, 2, -5, 11));
-        assert_eq!(136, a.bits.len());
-        assert_eq!(3, a.words_used());
+        assert_eq!(a.x_min_x_max_y_min_y_max(), (-2, 2, -2, 3));
+        assert_eq!(30, a.bits.len());
+        assert_eq!(1, a.words_used());
     }
 
     #[test]
