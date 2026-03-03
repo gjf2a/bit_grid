@@ -1,20 +1,13 @@
 use std::{
     cmp::{max, min},
     fmt::Display,
-    ops::{Add, AddAssign, Sub},
     str::FromStr,
 };
 
 use bits::BitArray;
-use num_traits::{One, Zero};
-use trait_set::trait_set;
 
-trait_set! {
-    pub trait BitGridIndex = Copy + Clone + Ord + PartialOrd + Eq + PartialEq + AddAssign + Zero + One + Add + Sub<Output = Self> + Display;
-}
-
-fn span<I: BitGridIndex>(min: I, max: I) -> I {
-    I::one() + max - min
+fn span(min: i64, max: i64) -> i64 {
+    1 + max - min
 }
 
 fn height_width(s: &str) -> (usize, usize) {
@@ -118,7 +111,7 @@ impl BitGrid {
             && self.max_y == other.max_y
     }
 
-    pub fn coord_iter(&self) -> CoordIter<i64> {
+    pub fn coord_iter(&self) -> CoordIter {
         CoordIter {
             max_y: self.max_y,
             min_x: self.min_x,
@@ -170,7 +163,7 @@ impl BitGrid {
     }
 
     pub fn ones(&self) -> impl Iterator<Item = (i64, i64)> {
-        self.coord_iter().filter(|(x, y)| self.is_set(*x, *y))
+        self.bits.one_indices().map(|i| self.index_2d(i))
     }
 
     pub fn ones_touching_zeros(&self) -> impl Iterator<Item = (i64, i64)> {
@@ -182,8 +175,8 @@ impl BitGrid {
         })
     }
 
-    pub fn count_bits_on(&self) -> u64 {
-        self.bits().count_bits_on()
+    pub fn count_ones(&self) -> u64 {
+        self.bits().count_ones()
     }
 
     fn stringify(&self) -> String {
@@ -238,7 +231,7 @@ impl BitGrid {
     pub fn overlapping_counts(&self, other: &Self) -> Option<u64>
     {
         self.intersection(other)
-            .map(|overlaps| overlaps.count_bits_on())
+            .map(|overlaps| overlaps.count_ones())
     }
 
     pub fn new(min_x: i64, max_x: i64, min_y: i64, max_y: i64) -> Self {
@@ -305,31 +298,58 @@ impl BitGrid {
         (grid_y * self.width() + grid_x) as u64
     }
 
+    fn index_2d(&self, i: u64) -> (i64, i64) {
+        let i = i as i64;
+        let uy = i / self.width();
+        let ux = i % self.width();
+        (ux + self.min_x, uy + self.min_y)
+    }
+
     pub fn x_min_x_max_y_min_y_max(&self) -> (i64, i64, i64, i64) {
         (self.min_x, self.max_x, self.min_y, self.max_y)
     }
 }
 
-pub struct CoordIter<I: BitGridIndex> {
-    max_y: I,
-    min_x: I,
-    max_x: I,
-    x: I,
-    y: I,
+impl FromIterator<(i64, i64)> for BitGrid {
+    fn from_iter<T: IntoIterator<Item = (i64, i64)>>(iter: T) -> Self {
+        let mut result = BitGrid::default();
+        for (x, y) in iter {
+            result.set(x, y, true);
+        }
+        result
+    }
 }
 
-impl<I: BitGridIndex> Iterator for CoordIter<I> {
-    type Item = (I, I);
+impl<'a> FromIterator<&'a (i64, i64)> for BitGrid {
+    fn from_iter<T: IntoIterator<Item = &'a (i64, i64)>>(iter: T) -> Self {
+        let mut result = BitGrid::default();
+        for (x, y) in iter {
+            result.set(*x, *y, true);
+        }
+        result
+    }
+}
+
+pub struct CoordIter {
+    max_y: i64,
+    min_x: i64,
+    max_x: i64,
+    x: i64,
+    y: i64,
+}
+
+impl Iterator for CoordIter {
+    type Item = (i64, i64);
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.y > self.max_y {
             None
         } else {
             let result = Some((self.x, self.y));
-            self.x += I::one();
+            self.x += 1;
             if self.x > self.max_x {
                 self.x = self.min_x;
-                self.y += I::one();
+                self.y += 1;
             }
             result
         }
@@ -358,7 +378,7 @@ mod tests {
         assert_eq!(format!("{grid}\n"), grid_str);
         assert_eq!(grid.height(), 3);
         assert_eq!(grid.width(), 7);
-        assert_eq!(grid.count_bits_on(), 7);
+        assert_eq!(grid.count_ones(), 7);
         for (x, y, value) in [
             (0, 0, true),
             (1, 0, true),
@@ -399,7 +419,7 @@ mod tests {
             .map(|(x, y, value)| ((*x, *y), *value))
             .collect::<HashMap<_, _>>();
         let grid = pvs.iter().copied().collect::<BitGrid>();
-        assert_eq!(grid.count_bits_on(), 2);
+        assert_eq!(grid.count_ones(), 2);
         assert_eq!(grid.width(), 5);
         assert_eq!(grid.height(), 6);
         for (x, y, value) in grid.iter() {
@@ -419,6 +439,14 @@ mod tests {
             zeros.x_min_x_max_y_min_y_max(),
             grid.x_min_x_max_y_min_y_max()
         );
+    }
+
+    #[test]
+    fn test_from_coord_iter() {
+        let coords = vec![(-2, -1), (1, -1), (-1, 1), (1, 2), (3, 4)];
+        let coord_set = coords.iter().collect::<BitGrid>();
+        let rebuilt = coord_set.ones().collect::<Vec<_>>();
+        assert_eq!(coords, rebuilt);
     }
 
     #[test]
@@ -510,7 +538,7 @@ mod tests {
         .copied()
         .collect::<BTreeSet<_>>();
         assert_eq!(expected, found);
-        let one_count = test_grid.count_bits_on();
+        let one_count = test_grid.count_ones();
         assert_eq!(found.len() as u64 + 1, one_count);
         assert_eq!(51, test_grid.bits().len());
         assert_eq!(1, test_grid.words_used());
