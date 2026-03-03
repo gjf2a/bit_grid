@@ -326,26 +326,10 @@ impl BitGrid for GrowingBitGrid {
                 self.bits.set(i, value);
             }
             None => {
-                let min_x = if x < self.min_x {
-                    x - self.width()
-                } else {
-                    self.min_x
-                };
-                let max_x = if x > self.max_x {
-                    x + self.width()
-                } else {
-                    self.max_x
-                };
-                let min_y = if y < self.min_y {
-                    y - self.height()
-                } else {
-                    self.min_y
-                };
-                let max_y = if y > self.max_y {
-                    y + self.height()
-                } else {
-                    self.max_y
-                };
+                let min_x = min(x, self.min_x);
+                let max_x = max(x, self.max_x);
+                let min_y = min(y, self.min_y);
+                let max_y = max(y, self.max_y);
                 self.resize(min_x, max_x, min_y, max_y);
                 self.bits.set(self.unchecked_index_1d(x, y), value);
             }
