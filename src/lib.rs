@@ -17,129 +17,15 @@ fn span<I: BitGridIndex>(min: I, max: I) -> I {
     I::one() + max - min
 }
 
-pub trait BitGrid {
-    type Index: BitGridIndex;
-
-    fn bits(&self) -> &BitArray;
-    fn num_bits(&self) -> u64;
-    fn with_bits(&self, alt_bits: BitArray) -> Self;
-    fn matching_dimensions(&self, other: &Self) -> bool;
-    fn is_set(&self, x: Self::Index, y: Self::Index) -> bool;
-    fn set(&mut self, x: Self::Index, y: Self::Index, value: bool);
-
-    fn min_x(&self) -> Self::Index;
-    fn max_x(&self) -> Self::Index;
-    fn min_y(&self) -> Self::Index;
-    fn max_y(&self) -> Self::Index;
-    fn coord_iter(&self) -> CoordIter<Self::Index>;
-
-    fn words_used(&self) -> u64 {
-        let base = self.bits().len() / 64;
-        let extra = if self.bits().len() % 64 > 0 {1} else {0};
-        base + extra
-    }
-
-    fn in_bounds(&self, x: Self::Index, y: Self::Index) -> bool {
-        self.min_x() <= x && x <= self.max_x() && self.min_y() <= y && y <= self.max_y()
-    }
-
-    fn manhattan_neighbors(
-        &self,
-        x: Self::Index,
-        y: Self::Index,
-    ) -> impl Iterator<Item = (Self::Index, Self::Index, bool)>;
-
-    fn width(&self) -> Self::Index {
-        span(self.min_x(), self.max_x())
-    }
-
-    fn height(&self) -> Self::Index {
-        span(self.min_y(), self.max_y())
-    }
-
-    fn iter(&self) -> impl Iterator<Item = (Self::Index, Self::Index, bool)> {
-        self.coord_iter().map(|(x, y)| (x, y, self.is_set(x, y)))
-    }
-
-    fn ones(&self) -> impl Iterator<Item = (Self::Index, Self::Index)> {
-        self.coord_iter().filter(|(x, y)| self.is_set(*x, *y))
-    }
-
-    fn ones_touching_zeros(&self) -> impl Iterator<Item = (Self::Index, Self::Index)> {
-        self.ones().filter(|(x, y)| {
-            self.manhattan_neighbors(*x, *y)
-                .filter(|(_, _, value)| *value)
-                .count()
-                < 4
-        })
-    }
-
-    fn count_bits_on(&self) -> u64 {
-        self.bits().count_bits_on()
-    }
-
-    fn stringify(&self) -> String {
-        let mut s = String::new();
-        for (x, y, value) in self.iter() {
-            if y > self.min_y() && x == self.min_x() {
-                s.push('\n');
-            }
-            let c = if value { '1' } else { '0' };
-            s.push(c);
-        }
-        s
-    }
-
-    fn destringify<F: Fn(usize) -> Self::Index>(
-        &mut self,
-        indexer: F,
-        s: &str,
-    ) -> anyhow::Result<()> {
-        for (y, row) in s.trim().lines().enumerate() {
-            for (x, cell) in row.trim().char_indices() {
-                let value = match cell {
-                    '1' | 'X' | '*' => true,
-                    '0' | 'O' | '.' => false,
-                    _ => return Err(anyhow::anyhow!("Illegal char: {cell}")),
-                };
-                self.set(indexer(x), indexer(y), value);
-            }
-        }
-        Ok(())
-    }
-
-    fn zero_clone(&self) -> Self where Self: Sized {
-        self.with_bits(BitArray::zeros(self.num_bits()))
-    }
-
-    fn intersection(&self, other: &Self) -> Option<Self> where Self: Sized {
-        if self.matching_dimensions(other) {
-            Some(self.with_bits(self.bits() & other.bits()))
-        } else {
-            None
-        }
-    }
-
-    fn union(&self, other: &Self) -> Option<Self> where Self: Sized {
-        if self.matching_dimensions(other) {
-            Some(self.with_bits(self.bits() | other.bits()))
-        } else {
-            None
-        }
-    }
-
-    fn overlapping_counts(&self, other: &Self) -> Option<u64> where Self: Sized {
-        self.intersection(other)
-            .map(|overlaps| overlaps.count_bits_on())
-    }
-}
-
 fn height_width(s: &str) -> (usize, usize) {
-    (s.trim().lines().count(), s.trim().lines().next().unwrap().trim().chars().count())
+    (
+        s.trim().lines().count(),
+        s.trim().lines().next().unwrap().trim().chars().count(),
+    )
 }
 
 #[derive(Clone, PartialEq, Eq, Debug)]
-pub struct GrowingBitGrid {
+pub struct BitGrid {
     bits: BitArray,
     min_x: i64,
     min_y: i64,
@@ -147,13 +33,13 @@ pub struct GrowingBitGrid {
     max_y: i64,
 }
 
-impl Default for GrowingBitGrid {
+impl Default for BitGrid {
     fn default() -> Self {
         Self::new(0, 0, 0, 0)
     }
 }
 
-impl FromIterator<(i64, i64, bool)> for GrowingBitGrid {
+impl FromIterator<(i64, i64, bool)> for BitGrid {
     fn from_iter<T: IntoIterator<Item = (i64, i64, bool)>>(iter: T) -> Self {
         let mut points = vec![];
         for v in iter {
@@ -167,7 +53,7 @@ impl FromIterator<(i64, i64, bool)> for GrowingBitGrid {
     }
 }
 
-impl FromStr for GrowingBitGrid {
+impl FromStr for BitGrid {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -178,15 +64,13 @@ impl FromStr for GrowingBitGrid {
     }
 }
 
-impl Display for GrowingBitGrid {
+impl Display for BitGrid {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.stringify())
     }
 }
 
-impl BitGrid for GrowingBitGrid {
-    type Index = i64;
-
+impl BitGrid {
     fn num_bits(&self) -> u64 {
         self.width() as u64 * self.height() as u64
     }
@@ -234,7 +118,7 @@ impl BitGrid for GrowingBitGrid {
             && self.max_y == other.max_y
     }
 
-    fn coord_iter(&self) -> CoordIter<Self::Index> {
+    fn coord_iter(&self) -> CoordIter<i64> {
         CoordIter {
             max_y: self.max_y,
             min_x: self.min_x,
@@ -244,19 +128,19 @@ impl BitGrid for GrowingBitGrid {
         }
     }
 
-    fn min_x(&self) -> Self::Index {
+    fn min_x(&self) -> i64 {
         self.min_x
     }
 
-    fn max_x(&self) -> Self::Index {
+    fn max_x(&self) -> i64 {
         self.max_x
     }
 
-    fn min_y(&self) -> Self::Index {
+    fn min_y(&self) -> i64 {
         self.min_y
     }
 
-    fn max_y(&self) -> Self::Index {
+    fn max_y(&self) -> i64 {
         self.max_y
     }
 
@@ -270,9 +154,101 @@ impl BitGrid for GrowingBitGrid {
             bits: alt_bits,
         }
     }
-}
 
-impl GrowingBitGrid {
+    pub fn words_used(&self) -> u64 {
+        let base = self.bits().len() / 64;
+        let extra = if self.bits().len() % 64 > 0 { 1 } else { 0 };
+        base + extra
+    }
+
+    fn in_bounds(&self, x: i64, y: i64) -> bool {
+        self.min_x() <= x && x <= self.max_x() && self.min_y() <= y && y <= self.max_y()
+    }
+
+    fn iter(&self) -> impl Iterator<Item = (i64, i64, bool)> {
+        self.coord_iter().map(|(x, y)| (x, y, self.is_set(x, y)))
+    }
+
+    pub fn ones(&self) -> impl Iterator<Item = (i64, i64)> {
+        self.coord_iter().filter(|(x, y)| self.is_set(*x, *y))
+    }
+
+    pub fn ones_touching_zeros(&self) -> impl Iterator<Item = (i64, i64)> {
+        self.ones().filter(|(x, y)| {
+            self.manhattan_neighbors(*x, *y)
+                .filter(|(_, _, value)| *value)
+                .count()
+                < 4
+        })
+    }
+
+    pub fn count_bits_on(&self) -> u64 {
+        self.bits().count_bits_on()
+    }
+
+    fn stringify(&self) -> String {
+        let mut s = String::new();
+        for (x, y, value) in self.iter() {
+            if y > self.min_y() && x == self.min_x() {
+                s.push('\n');
+            }
+            let c = if value { '1' } else { '0' };
+            s.push(c);
+        }
+        s
+    }
+
+    fn destringify<F: Fn(usize) -> i64>(&mut self, indexer: F, s: &str) -> anyhow::Result<()> {
+        for (y, row) in s.trim().lines().enumerate() {
+            for (x, cell) in row.trim().char_indices() {
+                let value = match cell {
+                    '1' | 'X' | '*' => true,
+                    '0' | 'O' | '.' => false,
+                    _ => return Err(anyhow::anyhow!("Illegal char: {cell}")),
+                };
+                self.set(indexer(x), indexer(y), value);
+            }
+        }
+        Ok(())
+    }
+
+    pub fn zero_clone(&self) -> Self
+    where
+        Self: Sized,
+    {
+        self.with_bits(BitArray::zeros(self.num_bits()))
+    }
+
+    pub fn intersection(&self, other: &Self) -> Option<Self>
+    where
+        Self: Sized,
+    {
+        if self.matching_dimensions(other) {
+            Some(self.with_bits(self.bits() & other.bits()))
+        } else {
+            None
+        }
+    }
+
+    pub fn union(&self, other: &Self) -> Option<Self>
+    where
+        Self: Sized,
+    {
+        if self.matching_dimensions(other) {
+            Some(self.with_bits(self.bits() | other.bits()))
+        } else {
+            None
+        }
+    }
+
+    pub fn overlapping_counts(&self, other: &Self) -> Option<u64>
+    where
+        Self: Sized,
+    {
+        self.intersection(other)
+            .map(|overlaps| overlaps.count_bits_on())
+    }
+
     pub fn new(min_x: i64, max_x: i64, min_y: i64, max_y: i64) -> Self {
         let num_zeros = span(min_x, max_x) * span(min_y, max_y);
         Self {
@@ -293,7 +269,12 @@ impl GrowingBitGrid {
     }
 
     pub fn downsize_to(&mut self, reference: &Self) {
-        self.resize(reference.min_x, reference.max_x, reference.min_y, reference.max_y);
+        self.resize(
+            reference.min_x,
+            reference.max_x,
+            reference.min_y,
+            reference.max_y,
+        );
     }
 
     pub fn match_sizes(&mut self, other: &mut Self) {
@@ -381,7 +362,7 @@ mod tests {
     #[test]
     fn test_from_str() {
         let grid_str = "1101000\n1011000\n0010000\n";
-        let grid = grid_str.parse::<GrowingBitGrid>().unwrap();
+        let grid = grid_str.parse::<BitGrid>().unwrap();
         assert_eq!(format!("{grid}\n"), grid_str);
         assert_eq!(grid.height(), 3);
         assert_eq!(grid.width(), 7);
@@ -425,7 +406,7 @@ mod tests {
             .iter()
             .map(|(x, y, value)| ((*x, *y), *value))
             .collect::<HashMap<_, _>>();
-        let grid = pvs.iter().copied().collect::<GrowingBitGrid>();
+        let grid = pvs.iter().copied().collect::<BitGrid>();
         assert_eq!(grid.count_bits_on(), 2);
         assert_eq!(grid.width(), 5);
         assert_eq!(grid.height(), 6);
@@ -457,26 +438,26 @@ mod tests {
             ("111\n111", "111\n111", 6),
             ("000\n000", "000\n000", 0),
         ] {
-            let one = one.parse::<GrowingBitGrid>().unwrap();
-            let two = two.parse::<GrowingBitGrid>().unwrap();
+            let one = one.parse::<BitGrid>().unwrap();
+            let two = two.parse::<BitGrid>().unwrap();
             assert_eq!(count, one.overlapping_counts(&two).unwrap());
         }
     }
 
     #[test]
     fn test_match_sizes() {
-        let mut one = "01\n10\n11".parse::<GrowingBitGrid>().unwrap();
-        let mut two = "101\n110".parse::<GrowingBitGrid>().unwrap();
+        let mut one = "01\n10\n11".parse::<BitGrid>().unwrap();
+        let mut two = "101\n110".parse::<BitGrid>().unwrap();
         one.match_sizes(&mut two);
-        let one_big = "010\n100\n110".parse::<GrowingBitGrid>().unwrap();
-        let two_big = "101\n110\n000".parse::<GrowingBitGrid>().unwrap();
+        let one_big = "010\n100\n110".parse::<BitGrid>().unwrap();
+        let two_big = "101\n110\n000".parse::<BitGrid>().unwrap();
         assert_eq!(one, one_big);
         assert_eq!(two, two_big);
     }
 
     #[test]
     fn test_manhattan_iter() {
-        let test_grid = "010\n100\n101".parse::<GrowingBitGrid>().unwrap();
+        let test_grid = "010\n100\n101".parse::<BitGrid>().unwrap();
         for (x, y, neighbors) in [
             (
                 0,
@@ -506,7 +487,7 @@ mod tests {
         11111010101011011
         10110000001000011
         "
-        .parse::<GrowingBitGrid>()
+        .parse::<BitGrid>()
         .unwrap();
         let found = test_grid.ones_touching_zeros().collect::<BTreeSet<_>>();
         let expected = [
@@ -545,23 +526,23 @@ mod tests {
 
     #[test]
     fn test_union() {
-        let a: GrowingBitGrid = "101\n011\n000".parse().unwrap();
-        let b: GrowingBitGrid = "001\n101\n010".parse().unwrap();
-        let c: GrowingBitGrid = "101\n111\n010".parse().unwrap();
+        let a: BitGrid = "101\n011\n000".parse().unwrap();
+        let b: BitGrid = "001\n101\n010".parse().unwrap();
+        let c: BitGrid = "101\n111\n010".parse().unwrap();
         assert_eq!(a.union(&b).unwrap(), c);
     }
 
     #[test]
     fn test_intersection() {
-        let a: GrowingBitGrid = "101\n011\n000".parse().unwrap();
-        let b: GrowingBitGrid = "001\n101\n010".parse().unwrap();
-        let c: GrowingBitGrid = "001\n001\n000".parse().unwrap();
+        let a: BitGrid = "101\n011\n000".parse().unwrap();
+        let b: BitGrid = "001\n101\n010".parse().unwrap();
+        let c: BitGrid = "001\n001\n000".parse().unwrap();
         assert_eq!(a.intersection(&b).unwrap(), c);
     }
 
     #[test]
     fn test_resize() {
-        let mut a: GrowingBitGrid = "101\n011\n000".parse().unwrap();
+        let mut a: BitGrid = "101\n011\n000".parse().unwrap();
         assert_eq!(9, a.bits().len());
         assert_eq!(1, a.words_used());
         a.set(-2, -2, true);
@@ -581,18 +562,18 @@ mod tests {
 
     #[test]
     fn test_downsize_to() {
-        let a: GrowingBitGrid = "101\n011\n000".parse().unwrap();
-        let b: GrowingBitGrid = "00\n10\n01".parse().unwrap();
-        let c: GrowingBitGrid = "010\n101".parse().unwrap();
+        let a: BitGrid = "101\n011\n000".parse().unwrap();
+        let b: BitGrid = "00\n10\n01".parse().unwrap();
+        let c: BitGrid = "010\n101".parse().unwrap();
         let mut aa = a.clone();
         aa.downsize_to(&a);
         assert_eq!(a, aa);
-        let ex1: GrowingBitGrid = "10\n01\n00".parse().unwrap();
+        let ex1: BitGrid = "10\n01\n00".parse().unwrap();
         let mut a1 = a.clone();
         a1.downsize_to(&b);
-        println!("a1: {a1}"); 
+        println!("a1: {a1}");
         assert_eq!(a1, ex1);
-        let ex2: GrowingBitGrid = "101\n011".parse().unwrap();
+        let ex2: BitGrid = "101\n011".parse().unwrap();
         let mut a2 = a.clone();
         a2.downsize_to(&c);
         assert_eq!(a2, ex2);
