@@ -11,7 +11,7 @@ trait_set! {
     pub trait NumType = FromStr + Display + ToPrimitive + Default + Num + Copy + AddAssign + SubAssign + MulAssign + DivAssign + PartialOrd + Sum;
 }
 
-use crate::point::Point;
+use crate::point::{GridPoint, Point};
 
 fn span<N: NumType>(min: N, max: N) -> N {
     N::one() + max - min
@@ -27,8 +27,8 @@ fn height_width(s: &str) -> (usize, usize) {
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct BitGrid {
     bits: BitArray,
-    min: Point<i64, 2>,
-    max: Point<i64, 2>,
+    min: GridPoint,
+    max: GridPoint,
 }
 
 impl Default for BitGrid {
@@ -37,8 +37,8 @@ impl Default for BitGrid {
     }
 }
 
-impl FromIterator<(Point<i64, 2>, bool)> for BitGrid {
-    fn from_iter<T: IntoIterator<Item = (Point<i64, 2>, bool)>>(iter: T) -> Self {
+impl FromIterator<(GridPoint, bool)> for BitGrid {
+    fn from_iter<T: IntoIterator<Item = (GridPoint, bool)>>(iter: T) -> Self {
         let mut points = vec![];
         for v in iter {
             points.push(v);
@@ -78,7 +78,15 @@ impl BitGrid {
         }
     }
 
-    fn setup(points: &Vec<(Point<i64, 2>, bool)>) -> Self {
+    pub fn translated(&self, translation: GridPoint) -> Self {
+        Self {
+            bits: self.bits.clone(),
+            min: self.min + translation,
+            max: self.max + translation,
+        }
+    }
+
+    fn setup(points: &Vec<(GridPoint, bool)>) -> Self {
         let min_x = points.iter().map(|v| v.0[0]).min().unwrap();
         let max_x = points.iter().map(|v| v.0[0]).max().unwrap();
         let min_y = points.iter().map(|v| v.0[1]).min().unwrap();
@@ -90,14 +98,14 @@ impl BitGrid {
         self.width() as u64 * self.height() as u64
     }
 
-    pub fn min_max_stored(&self) -> (Point<i64, 2>, Point<i64, 2>) {
+    pub fn min_max_stored(&self) -> (GridPoint, GridPoint) {
         (self.min, self.max)
     }
 
     pub fn manhattan_neighbors(
         &self,
-        p: &Point<i64, 2>,
-    ) -> impl Iterator<Item = (Point<i64, 2>, bool)> {
+        p: &GridPoint,
+    ) -> impl Iterator<Item = (GridPoint, bool)> {
         manhattan_iter(p).map(|p| (p, self.get(&p)))
     }
 
@@ -105,11 +113,11 @@ impl BitGrid {
         &self.bits
     }
 
-    pub fn get(&self, p: &Point<i64, 2>) -> bool {
+    pub fn get(&self, p: &GridPoint) -> bool {
         self.index_1d(p).map_or(false, |i| self.bits.is_set(i))
     }
 
-    pub fn set(&mut self, p: Point<i64, 2>, value: bool) {
+    pub fn set(&mut self, p: GridPoint, value: bool) {
         match self.index_1d(&p) {
             Some(i) => {
                 self.bits.set(i, value);
@@ -156,19 +164,19 @@ impl BitGrid {
         base + extra
     }
 
-    fn in_bounds(&self, p: &Point<i64, 2>) -> bool {
+    fn in_bounds(&self, p: &GridPoint) -> bool {
         self.min[0] <= p[0] && p[0] <= self.max[0] && self.min[1] <= p[1] && p[1] <= self.max[1]
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = (Point<i64, 2>, bool)> {
+    pub fn iter(&self) -> impl Iterator<Item = (GridPoint, bool)> {
         self.coord_iter().map(|p| (p, self.get(&p)))
     }
 
-    pub fn ones(&self) -> impl Iterator<Item = Point<i64, 2>> {
+    pub fn ones(&self) -> impl Iterator<Item = GridPoint> {
         self.bits.one_indices().map(|i| self.index_2d(i))
     }
 
-    pub fn ones_touching_zeros(&self) -> impl Iterator<Item = Point<i64, 2>> {
+    pub fn ones_touching_zeros(&self) -> impl Iterator<Item = GridPoint> {
         self.ones().filter(|p| {
             self.manhattan_neighbors(p)
                 .filter(|(_, value)| *value)
@@ -215,7 +223,7 @@ impl BitGrid {
         (self & other).count_ones()
     }
 
-    fn resize(&mut self, min: Point<i64, 2>, max: Point<i64, 2>) {
+    fn resize(&mut self, min: GridPoint, max: GridPoint) {
         if min != self.min || max != self.max {
             let mut new_self = Self::new(min[0], max[0], min[1], max[1]);
             for (p, value) in self.iter() {
@@ -226,7 +234,7 @@ impl BitGrid {
         }
     }
 
-    fn index_1d(&self, p: &Point<i64, 2>) -> Option<u64> {
+    fn index_1d(&self, p: &GridPoint) -> Option<u64> {
         if self.in_bounds(p) {
             Some(self.unchecked_index_1d(p))
         } else {
@@ -234,13 +242,13 @@ impl BitGrid {
         }
     }
 
-    fn unchecked_index_1d(&self, p: &Point<i64, 2>) -> u64 {
+    fn unchecked_index_1d(&self, p: &GridPoint) -> u64 {
         let grid_x = p[0] - self.min[0];
         let grid_y = p[1] - self.min[1];
         (grid_y * self.width() + grid_x) as u64
     }
 
-    fn index_2d(&self, i: u64) -> Point<i64, 2> {
+    fn index_2d(&self, i: u64) -> GridPoint {
         let i = i as i64;
         let uy = i / self.width();
         let ux = i % self.width();
@@ -280,8 +288,8 @@ impl BitXor for &BitGrid {
     }
 }
 
-impl FromIterator<Point<i64, 2>> for BitGrid {
-    fn from_iter<T: IntoIterator<Item = Point<i64, 2>>>(iter: T) -> Self {
+impl FromIterator<GridPoint> for BitGrid {
+    fn from_iter<T: IntoIterator<Item = GridPoint>>(iter: T) -> Self {
         let mut result = BitGrid::default();
         for p in iter {
             result.set(p, true);
@@ -290,8 +298,8 @@ impl FromIterator<Point<i64, 2>> for BitGrid {
     }
 }
 
-impl<'a> FromIterator<&'a Point<i64, 2>> for BitGrid {
-    fn from_iter<T: IntoIterator<Item = &'a Point<i64, 2>>>(iter: T) -> Self {
+impl<'a> FromIterator<&'a GridPoint> for BitGrid {
+    fn from_iter<T: IntoIterator<Item = &'a GridPoint>>(iter: T) -> Self {
         let mut result = BitGrid::default();
         for p in iter {
             result.set(*p, true);
@@ -309,7 +317,7 @@ pub struct CoordIter {
 }
 
 impl Iterator for CoordIter {
-    type Item = Point<i64, 2>;
+    type Item = GridPoint;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.y > self.max_y {
@@ -328,7 +336,7 @@ impl Iterator for CoordIter {
 
 const MANHATTAN_OFFSETS: [(i64, i64); 4] = [(-1, 0), (0, -1), (1, 0), (0, 1)];
 
-fn manhattan_iter(p: &Point<i64, 2>) -> impl Iterator<Item = Point<i64, 2>> {
+fn manhattan_iter(p: &GridPoint) -> impl Iterator<Item = GridPoint> {
     MANHATTAN_OFFSETS
         .iter()
         .copied()
@@ -570,5 +578,14 @@ mod tests {
         assert_eq!(a.max, pt!(2, 3));
         assert_eq!(30, a.bits.len());
         assert_eq!(1, a.words_used());
+    }
+
+    #[test]
+    fn test_translation() {
+        let a: BitGrid = "010\n111\n010".parse().unwrap();
+        let zeroed = a.translated(pt!(-1, -1));
+        let expected_ones = vec![pt!(0, -1), pt!(-1, 0), pt!(0, 0), pt!(1, 0), pt!(0, 1)];
+        let zeroed_ones = zeroed.ones().collect::<Vec<_>>();
+        assert_eq!(expected_ones, zeroed_ones);
     }
 }
