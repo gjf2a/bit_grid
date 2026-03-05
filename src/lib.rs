@@ -16,7 +16,7 @@ trait_set! {
     pub trait NumType = FromStr + Display + ToPrimitive + Default + Num + Copy + AddAssign + SubAssign + MulAssign + DivAssign + PartialOrd + Sum;
 }
 
-use crate::point::{GridPoint, Point};
+use crate::point::{BoundingBox, GridPoint, Point};
 
 fn span<N: NumType>(min: N, max: N) -> N {
     N::one() + max - min
@@ -103,8 +103,8 @@ impl BitGrid {
         self.width() as u64 * self.height() as u64
     }
 
-    pub fn min_max_stored(&self) -> (GridPoint, GridPoint) {
-        (self.min, self.max)
+    pub fn bounding_box(&self) -> BoundingBox<i64> {
+        BoundingBox::new(self.min, self.max)
     }
 
     pub fn manhattan_neighbors(&self, p: &GridPoint) -> impl Iterator<Item = (GridPoint, bool)> {
