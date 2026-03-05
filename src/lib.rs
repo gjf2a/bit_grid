@@ -1,5 +1,3 @@
-pub mod spiral;
-
 use std::{
     cmp::{max, min},
     fmt::Display,
@@ -228,6 +226,16 @@ impl BitGrid {
         } else {
             None
         }
+    }
+
+    pub fn differences(&self, other: &Self) -> Self {
+        let mut result = self.ones().filter(|(x, y)| !other.is_set(*x, *y)).collect::<Self>();
+        for (x, y) in other.ones() {
+            if !self.is_set(x, y) {
+                result.set(x, y, true);
+            }
+        }
+        result
     }
 
     pub fn overlapping_counts(&self, other: &Self) -> Option<u64>
@@ -599,5 +607,11 @@ mod tests {
         let mut a2 = a.clone();
         a2.downsize_to(&c);
         assert_eq!(a2, ex2);
+    }
+
+    #[test]
+    fn test_differences() {
+        let a = [(-2, -1), (1, 1), (3, 1), (-4, 1)].iter().collect::<BitGrid>();
+        todo!("Finish test");
     }
 }
