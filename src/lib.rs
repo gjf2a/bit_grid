@@ -83,6 +83,10 @@ impl BitGrid {
         self.width() as u64 * self.height() as u64
     }
 
+    pub fn min_max_stored(&self) -> (Point<i64, 2>, Point<i64, 2>) {
+        (self.min, self.max)
+    }
+
     pub fn manhattan_neighbors(
         &self,
         p: Point<i64, 2>,
