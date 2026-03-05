@@ -1,3 +1,5 @@
+pub mod spiral;
+
 use std::{
     cmp::{max, min},
     fmt::Display,
