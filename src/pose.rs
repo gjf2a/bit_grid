@@ -5,7 +5,6 @@ use std::{
 
 use crate::{angle::Angle, point::FloatPoint};
 
-
 #[derive(Copy, Clone, PartialEq, Debug, Default)]
 pub struct RobotPose<A: Angle> {
     pub pos: FloatPoint,
@@ -88,8 +87,10 @@ impl<A: Angle + Sub<Output = A> + Copy> SubAssign for RobotPose<A> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{angle::{Degrees, Radians}, point::FloatPoint};
-
+    use crate::{
+        angle::{Degrees, Radians},
+        point::FloatPoint,
+    };
 
     #[test]
     fn test_float_point_convert() {

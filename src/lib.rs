@@ -1,11 +1,16 @@
-pub mod point;
 pub mod angle;
+pub mod point;
 pub mod pose;
 
-use std::{fmt::Display, iter::Sum, ops::{AddAssign, BitAnd, BitOr, BitXor, DivAssign, MulAssign, SubAssign}, str::FromStr};
-use trait_set::trait_set;
 use bits::BitArray;
 use num_traits::{Num, cast::ToPrimitive};
+use std::{
+    fmt::Display,
+    iter::Sum,
+    ops::{AddAssign, BitAnd, BitOr, BitXor, DivAssign, MulAssign, SubAssign},
+    str::FromStr,
+};
+use trait_set::trait_set;
 
 trait_set! {
     pub trait NumType = FromStr + Display + ToPrimitive + Default + Num + Copy + AddAssign + SubAssign + MulAssign + DivAssign + PartialOrd + Sum;
@@ -102,10 +107,7 @@ impl BitGrid {
         (self.min, self.max)
     }
 
-    pub fn manhattan_neighbors(
-        &self,
-        p: &GridPoint,
-    ) -> impl Iterator<Item = (GridPoint, bool)> {
+    pub fn manhattan_neighbors(&self, p: &GridPoint) -> impl Iterator<Item = (GridPoint, bool)> {
         manhattan_iter(p).map(|p| (p, self.get(&p)))
     }
 
@@ -266,7 +268,7 @@ impl BitAnd for &BitGrid {
 
 impl BitOr for &BitGrid {
     type Output = BitGrid;
-    
+
     fn bitor(self, rhs: Self) -> Self::Output {
         let mut union = self.ones().collect::<BitGrid>();
         for one in rhs.ones() {
@@ -278,7 +280,7 @@ impl BitOr for &BitGrid {
 
 impl BitXor for &BitGrid {
     type Output = BitGrid;
-    
+
     fn bitxor(self, rhs: Self) -> Self::Output {
         let mut union = self.ones().collect::<BitGrid>();
         for one in rhs.ones() {

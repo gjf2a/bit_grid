@@ -1,7 +1,10 @@
-use std::{f64::consts::PI, fmt::Display, ops::{Add, AddAssign, Sub, SubAssign}};
+use std::{
+    f64::consts::PI,
+    fmt::Display,
+    ops::{Add, AddAssign, Sub, SubAssign},
+};
 
 use crate::point::FloatPoint;
-
 
 pub trait Angle {
     fn bound() -> f64;

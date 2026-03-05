@@ -301,8 +301,8 @@ impl<N: NumType, const S: usize> Div<N> for Point<N, S> {
 
 #[derive(Default, Clone, Copy, Debug)]
 pub struct BoundingBox {
-    min: FloatPoint, 
-    max: FloatPoint
+    min: FloatPoint,
+    max: FloatPoint,
 }
 
 impl BoundingBox {
