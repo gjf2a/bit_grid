@@ -89,7 +89,7 @@ impl BitGrid {
 
     pub fn manhattan_neighbors(
         &self,
-        p: Point<i64, 2>,
+        p: &Point<i64, 2>,
     ) -> impl Iterator<Item = (Point<i64, 2>, bool)> {
         manhattan_iter(p).map(|p| (p, self.get(&p)))
     }
@@ -163,7 +163,7 @@ impl BitGrid {
 
     pub fn ones_touching_zeros(&self) -> impl Iterator<Item = Point<i64, 2>> {
         self.ones().filter(|p| {
-            self.manhattan_neighbors(*p)
+            self.manhattan_neighbors(p)
                 .filter(|(_, value)| *value)
                 .count()
                 < 4
@@ -321,7 +321,7 @@ impl Iterator for CoordIter {
 
 const MANHATTAN_OFFSETS: [(i64, i64); 4] = [(-1, 0), (0, -1), (1, 0), (0, 1)];
 
-fn manhattan_iter(p: Point<i64, 2>) -> impl Iterator<Item = Point<i64, 2>> {
+fn manhattan_iter(p: &Point<i64, 2>) -> impl Iterator<Item = Point<i64, 2>> {
     MANHATTAN_OFFSETS
         .iter()
         .copied()
@@ -470,7 +470,7 @@ mod tests {
                 ],
             ),
         ] {
-            let actual = test_grid.manhattan_neighbors(p).collect::<Vec<_>>();
+            let actual = test_grid.manhattan_neighbors(&p).collect::<Vec<_>>();
             assert_eq!(actual, neighbors);
         }
     }
