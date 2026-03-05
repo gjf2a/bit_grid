@@ -1,5 +1,6 @@
 pub mod point;
 pub mod angle;
+pub mod pose;
 
 use std::{fmt::Display, ops::{BitAnd, BitOr, BitXor}, str::FromStr};
 
