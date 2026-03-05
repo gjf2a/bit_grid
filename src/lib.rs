@@ -18,8 +18,8 @@ trait_set! {
 
 use crate::point::{BoundingBox, GridPoint, Point};
 
-fn span<N: NumType>(min: N, max: N) -> N {
-    N::one() + max - min
+pub fn span(min: i64, max: i64) -> i64 {
+    1 + max - min
 }
 
 fn height_width(s: &str) -> (usize, usize) {
