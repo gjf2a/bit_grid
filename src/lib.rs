@@ -1,6 +1,6 @@
 pub mod point;
 
-use std::{fmt::Display, str::FromStr};
+use std::{fmt::Display, ops::{BitAnd, BitOr, BitXor}, str::FromStr};
 
 use bits::BitArray;
 
@@ -87,19 +87,19 @@ impl BitGrid {
         &self,
         p: Point<i64, 2>,
     ) -> impl Iterator<Item = (Point<i64, 2>, bool)> {
-        manhattan_iter(p).map(|p| (p, self.get(p)))
+        manhattan_iter(p).map(|p| (p, self.get(&p)))
     }
 
     fn bits(&self) -> &BitArray {
         &self.bits
     }
 
-    pub fn get(&self, p: Point<i64, 2>) -> bool {
+    pub fn get(&self, p: &Point<i64, 2>) -> bool {
         self.index_1d(p).map_or(false, |i| self.bits.is_set(i))
     }
 
     pub fn set(&mut self, p: Point<i64, 2>, value: bool) {
-        match self.index_1d(p) {
+        match self.index_1d(&p) {
             Some(i) => {
                 self.bits.set(i, value);
             }
@@ -107,7 +107,7 @@ impl BitGrid {
                 let min = self.min.element_min(&p);
                 let max = self.max.element_max(&p);
                 self.resize(min, max);
-                self.bits.set(self.unchecked_index_1d(p), value);
+                self.bits.set(self.unchecked_index_1d(&p), value);
             }
         }
     }
@@ -145,12 +145,12 @@ impl BitGrid {
         base + extra
     }
 
-    fn in_bounds(&self, p: Point<i64, 2>) -> bool {
+    fn in_bounds(&self, p: &Point<i64, 2>) -> bool {
         self.min[0] <= p[0] && p[0] <= self.max[0] && self.min[1] <= p[1] && p[1] <= self.max[1]
     }
 
     pub fn iter(&self) -> impl Iterator<Item = (Point<i64, 2>, bool)> {
-        self.coord_iter().map(|p| (p, self.get(p)))
+        self.coord_iter().map(|p| (p, self.get(&p)))
     }
 
     pub fn ones(&self) -> impl Iterator<Item = Point<i64, 2>> {
@@ -200,40 +200,22 @@ impl BitGrid {
         self.with_bits(BitArray::zeros(self.num_bits()))
     }
 
-    pub fn intersection(&self, other: &Self) -> Self {
-        self.with_bits(self.bits() & other.bits())
-    }
-
-    pub fn union(&self, other: &Self) -> Self {
-        self.with_bits(self.bits() | other.bits())
-    }
-
-    pub fn differences(&self, other: &Self) -> Self {
-        let mut result = self.ones().filter(|p| !other.get(*p)).collect::<Self>();
-        for p in other.ones() {
-            if !self.get(p) {
-                result.set(p, true);
-            }
-        }
-        result
-    }
-
     pub fn overlapping_counts(&self, other: &Self) -> u64 {
-        self.intersection(other).count_ones()
+        (self & other).count_ones()
     }
 
     fn resize(&mut self, min: Point<i64, 2>, max: Point<i64, 2>) {
         if min != self.min || max != self.max {
             let mut new_self = Self::new(min[0], max[0], min[1], max[1]);
             for (p, value) in self.iter() {
-                assert!(new_self.in_bounds(p));
-                new_self.bits.set(new_self.unchecked_index_1d(p), value);
+                assert!(new_self.in_bounds(&p));
+                new_self.bits.set(new_self.unchecked_index_1d(&p), value);
             }
             std::mem::swap(&mut new_self, self);
         }
     }
 
-    fn index_1d(&self, p: Point<i64, 2>) -> Option<u64> {
+    fn index_1d(&self, p: &Point<i64, 2>) -> Option<u64> {
         if self.in_bounds(p) {
             Some(self.unchecked_index_1d(p))
         } else {
@@ -241,7 +223,7 @@ impl BitGrid {
         }
     }
 
-    fn unchecked_index_1d(&self, p: Point<i64, 2>) -> u64 {
+    fn unchecked_index_1d(&self, p: &Point<i64, 2>) -> u64 {
         let grid_x = p[0] - self.min[0];
         let grid_y = p[1] - self.min[1];
         (grid_y * self.width() + grid_x) as u64
@@ -252,6 +234,38 @@ impl BitGrid {
         let uy = i / self.width();
         let ux = i % self.width();
         pt!(ux + self.min[0], uy + self.min[1])
+    }
+}
+
+impl BitAnd for &BitGrid {
+    type Output = BitGrid;
+
+    fn bitand(self, rhs: Self) -> Self::Output {
+        self.ones().filter(|p| rhs.get(p)).collect()
+    }
+}
+
+impl BitOr for &BitGrid {
+    type Output = BitGrid;
+    
+    fn bitor(self, rhs: Self) -> Self::Output {
+        let mut union = self.ones().collect::<BitGrid>();
+        for one in rhs.ones() {
+            union.set(one, true);
+        }
+        union
+    }
+}
+
+impl BitXor for &BitGrid {
+    type Output = BitGrid;
+    
+    fn bitxor(self, rhs: Self) -> Self::Output {
+        let mut union = self.ones().collect::<BitGrid>();
+        for one in rhs.ones() {
+            union.set(one, !self.get(&one));
+        }
+        union
     }
 }
 
@@ -339,14 +353,14 @@ mod tests {
             (3, 2, false),
             (4, 1, false),
         ] {
-            assert_eq!(grid.get(pt!(x, y)), value);
-            assert!(grid.in_bounds(pt!(x, y)));
+            assert_eq!(grid.get(&pt!(x, y)), value);
+            assert!(grid.in_bounds(&pt!(x, y)));
         }
 
         // out of bounds - still false
         for (x, y) in [(-1, 0), (3, 3), (1, 3), (1, -3)] {
-            assert_eq!(grid.get(pt!(x, y)), false);
-            assert!(!grid.in_bounds(pt!(x, y)));
+            assert_eq!(grid.get(&pt!(x, y)), false);
+            assert!(!grid.in_bounds(&pt!(x, y)));
         }
 
         let zero_grid = grid.zero_clone();
@@ -377,7 +391,7 @@ mod tests {
             .collect::<Vec<_>>();
         let ones2 = grid.ones().collect::<Vec<_>>();
         for one in ones2.iter() {
-            assert!(grid.get(*one));
+            assert!(grid.get(one));
         }
         assert_eq!(ones1, ones2);
         for (p, value) in grid.iter() {
@@ -502,19 +516,27 @@ mod tests {
     }
 
     #[test]
-    fn test_union() {
+    fn test_bit_or() {
         let a: BitGrid = "101\n011\n000".parse().unwrap();
         let b: BitGrid = "001\n101\n010".parse().unwrap();
         let c: BitGrid = "101\n111\n010".parse().unwrap();
-        assert_eq!(a.union(&b), c);
+        assert_eq!((&a | &b), c);
     }
 
     #[test]
-    fn test_intersection() {
+    fn test_bit_and() {
         let a: BitGrid = "101\n011\n000".parse().unwrap();
         let b: BitGrid = "001\n101\n010".parse().unwrap();
-        let c: BitGrid = "001\n001\n000".parse().unwrap();
-        assert_eq!(a.intersection(&b), c);
+        let c: BitGrid = [pt!(2, 0), pt!(2, 1)].iter().collect();
+        assert_eq!((&a & &b), c);
+    }
+
+    #[test]
+    fn test_bit_xor() {
+        let a: BitGrid = "101\n011\n000".parse().unwrap();
+        let b: BitGrid = "001\n101\n010".parse().unwrap();
+        let c: BitGrid = "100\n110\n010".parse().unwrap();
+        assert_eq!((&a ^ &b), c);
     }
 
     #[test]
@@ -537,13 +559,5 @@ mod tests {
         assert_eq!(a.max, pt!(2, 3));
         assert_eq!(30, a.bits.len());
         assert_eq!(1, a.words_used());
-    }
-
-    #[test]
-    fn test_differences() {
-        let a = [pt!(-2, -1), pt!(1, 1), pt!(3, 1), pt!(-4, 1)]
-            .iter()
-            .collect::<BitGrid>();
-        todo!("Finish test");
     }
 }
