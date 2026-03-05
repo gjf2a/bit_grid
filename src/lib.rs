@@ -2,14 +2,19 @@ pub mod point;
 pub mod angle;
 pub mod pose;
 
-use std::{fmt::Display, ops::{BitAnd, BitOr, BitXor}, str::FromStr};
-
+use std::{fmt::Display, iter::Sum, ops::{AddAssign, BitAnd, BitOr, BitXor, DivAssign, MulAssign, SubAssign}, str::FromStr};
+use trait_set::trait_set;
 use bits::BitArray;
+use num_traits::{Num, cast::ToPrimitive};
+
+trait_set! {
+    pub trait NumType = FromStr + Display + ToPrimitive + Default + Num + Copy + AddAssign + SubAssign + MulAssign + DivAssign + PartialOrd + Sum;
+}
 
 use crate::point::Point;
 
-fn span(min: i64, max: i64) -> i64 {
-    1 + max - min
+fn span<N: NumType>(min: N, max: N) -> N {
+    N::one() + max - min
 }
 
 fn height_width(s: &str) -> (usize, usize) {

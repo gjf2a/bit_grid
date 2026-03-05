@@ -1,23 +1,18 @@
 use std::{
     fmt::Display,
-    iter::Sum,
     ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Neg, Sub, SubAssign},
     str::FromStr,
 };
 
 use itertools::Itertools;
-use num_traits::{Num, cast::ToPrimitive};
-use trait_set::trait_set;
+
+use crate::NumType;
 
 #[macro_export]
 macro_rules! pt {
     ($x:expr, $y:expr) => {
         Point::new([$x, $y])
     };
-}
-
-trait_set! {
-    pub trait NumType = FromStr + Display + ToPrimitive + Default + Num + Copy + AddAssign + SubAssign + MulAssign + DivAssign + PartialOrd + Sum;
 }
 
 pub type GridPoint = Point<i64, 2>;
@@ -300,6 +295,53 @@ impl<N: NumType, const S: usize> Div<N> for Point<N, S> {
     fn div(self, rhs: N) -> Self::Output {
         let mut result = self;
         result /= rhs;
+        result
+    }
+}
+
+#[derive(Default, Clone, Copy, Debug)]
+pub struct BoundingBox {
+    min: FloatPoint, 
+    max: FloatPoint
+}
+
+impl BoundingBox {
+    pub fn observe(&mut self, p: &FloatPoint) {
+        self.min = self.min.element_min(&p);
+        self.max = self.max.element_max(&p);
+    }
+
+    pub fn width(&self) -> f64 {
+        self.max[0] - self.min[0]
+    }
+
+    pub fn height(&self) -> f64 {
+        self.max[1] - self.min[1]
+    }
+
+    pub fn min_x(&self) -> f64 {
+        self.min[0]
+    }
+
+    pub fn max_x(&self) -> f64 {
+        self.max[0]
+    }
+
+    pub fn min_y(&self) -> f64 {
+        self.min[1]
+    }
+
+    pub fn max_y(&self) -> f64 {
+        self.max[1]
+    }
+}
+
+impl FromIterator<FloatPoint> for BoundingBox {
+    fn from_iter<T: IntoIterator<Item = FloatPoint>>(iter: T) -> Self {
+        let mut result = Self::default();
+        for point in iter {
+            result.observe(&point);
+        }
         result
     }
 }
