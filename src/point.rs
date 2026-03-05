@@ -300,54 +300,54 @@ impl<N: NumType, const S: usize> Div<N> for Point<N, S> {
 }
 
 #[derive(Default, Clone, Copy, Debug)]
-pub struct BoundingBox {
-    min: FloatPoint,
-    max: FloatPoint,
+pub struct BoundingBox<N: NumType> {
+    min: Point<N, 2>,
+    max: Point<N, 2>,
 }
 
-impl BoundingBox {
-    pub fn new(min: FloatPoint, max: FloatPoint) -> Self {
+impl<N: NumType> BoundingBox<N> {
+    pub fn new(min: Point<N, 2>, max: Point<N, 2>) -> Self {
         Self { min, max }
     }
 
-    pub fn merge(&self, other: BoundingBox) -> Self {
+    pub fn merge(&self, other: BoundingBox<N>) -> Self {
         Self {
             min: self.min.element_min(&other.min),
             max: self.max.element_max(&other.max),
         }
     }
 
-    pub fn observe(&mut self, p: &FloatPoint) {
+    pub fn observe(&mut self, p: &Point<N, 2>) {
         self.min = self.min.element_min(&p);
         self.max = self.max.element_max(&p);
     }
 
-    pub fn width(&self) -> f64 {
+    pub fn width(&self) -> N {
         self.max[0] - self.min[0]
     }
 
-    pub fn height(&self) -> f64 {
+    pub fn height(&self) -> N {
         self.max[1] - self.min[1]
     }
 
-    pub fn min_x(&self) -> f64 {
+    pub fn min_x(&self) -> N {
         self.min[0]
     }
 
-    pub fn max_x(&self) -> f64 {
+    pub fn max_x(&self) -> N {
         self.max[0]
     }
 
-    pub fn min_y(&self) -> f64 {
+    pub fn min_y(&self) -> N {
         self.min[1]
     }
 
-    pub fn max_y(&self) -> f64 {
+    pub fn max_y(&self) -> N {
         self.max[1]
     }
 }
 
-impl FromIterator<FloatPoint> for BoundingBox {
+impl FromIterator<FloatPoint> for BoundingBox<f64> {
     fn from_iter<T: IntoIterator<Item = FloatPoint>>(iter: T) -> Self {
         let mut result = Self::default();
         for point in iter {
