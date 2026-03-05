@@ -306,6 +306,17 @@ pub struct BoundingBox {
 }
 
 impl BoundingBox {
+    pub fn new(min: FloatPoint, max: FloatPoint) -> Self {
+        Self { min, max }
+    }
+
+    pub fn merge(&self, other: BoundingBox) -> Self {
+        Self {
+            min: self.min.element_min(&other.min),
+            max: self.max.element_max(&other.max),
+        }
+    }
+
     pub fn observe(&mut self, p: &FloatPoint) {
         self.min = self.min.element_min(&p);
         self.max = self.max.element_max(&p);
