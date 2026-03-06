@@ -91,6 +91,18 @@ impl BitGrid {
         }
     }
 
+    pub fn center(&self) -> GridPoint {
+        pt!((self.min[0] + self.max[0]) / 2, (self.min[1] + self.max[1]) / 2)
+    }
+
+    pub fn x_axis_reflection(&self) -> Self {
+        self.ones().map(|p| pt!(p[0], self.max[1] - p[1])).collect()
+    }
+
+    pub fn y_axis_reflection(&self) -> Self {
+        self.ones().map(|p| pt!(self.max[0] - p[0], p[1])).collect()
+    }
+
     fn setup(points: &Vec<(GridPoint, bool)>) -> Self {
         let min_x = points.iter().map(|v| v.0[0]).min().unwrap();
         let max_x = points.iter().map(|v| v.0[0]).max().unwrap();
@@ -589,5 +601,15 @@ mod tests {
         let expected_ones = vec![pt!(0, -1), pt!(-1, 0), pt!(0, 0), pt!(1, 0), pt!(0, 1)];
         let zeroed_ones = zeroed.ones().collect::<Vec<_>>();
         assert_eq!(expected_ones, zeroed_ones);
+    }
+
+    #[test]
+    fn test_reflection() {
+        let map: BitGrid = "0010\n1101\n0101\n0110".parse().unwrap();
+        let expect_x: BitGrid = "0110\n0101\n1101\n0010".parse().unwrap();
+        let expect_y: BitGrid = "0100\n1011\n1010\n0110".parse().unwrap();
+
+        assert_eq!(map.x_axis_reflection(), expect_x);
+        assert_eq!(map.y_axis_reflection(), expect_y);
     }
 }
