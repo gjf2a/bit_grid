@@ -210,7 +210,8 @@ impl BitGrid {
             }
         }
         Ok(s.trim().lines().enumerate().flat_map(|(y, line)| {
-            line.trim().char_indices()
+            line.trim()
+                .char_indices()
                 .map(move |(x, c)| (pt!(x as i64, y as i64), Self::to_bit(c).unwrap()))
         }))
     }
@@ -264,11 +265,10 @@ impl FromStr for BitGrid {
 
 impl FromIterator<(GridPoint, bool)> for BitGrid {
     fn from_iter<T: IntoIterator<Item = (GridPoint, bool)>>(iter: T) -> Self {
-        let mut result = Self::default();
-        for (p, value) in iter {
-            result.set(p, value);
-        }
-        result
+        iter.into_iter()
+            .filter(|(_, value)| *value)
+            .map(|(p, _)| p)
+            .collect()
     }
 }
 
@@ -284,11 +284,7 @@ impl FromIterator<GridPoint> for BitGrid {
 
 impl<'a> FromIterator<&'a GridPoint> for BitGrid {
     fn from_iter<T: IntoIterator<Item = &'a GridPoint>>(iter: T) -> Self {
-        let mut result = BitGrid::default();
-        for p in iter {
-            result.set(*p, true);
-        }
-        result
+        iter.into_iter().copied().collect()
     }
 }
 
