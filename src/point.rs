@@ -347,8 +347,8 @@ impl<N: NumType> BoundingBox<N> {
     }
 }
 
-impl FromIterator<FloatPoint> for BoundingBox<f64> {
-    fn from_iter<T: IntoIterator<Item = FloatPoint>>(iter: T) -> Self {
+impl<N: NumType> FromIterator<Point<N, 2>> for BoundingBox<N> {
+    fn from_iter<T: IntoIterator<Item = Point<N, 2>>>(iter: T) -> Self {
         let mut result = Self::default();
         for point in iter {
             result.observe(&point);
@@ -361,7 +361,7 @@ impl FromIterator<FloatPoint> for BoundingBox<f64> {
 mod tests {
     use std::collections::HashSet;
 
-    use crate::point::Point;
+    use crate::point::{BoundingBox, Point};
 
     use super::GridPoint;
 
@@ -433,5 +433,14 @@ mod tests {
         let b = GridPoint::new([4, 3]);
         assert_eq!(GridPoint::new([2, 3]), a.element_min(&b));
         assert_eq!(GridPoint::new([4, 7]), a.element_max(&b));
+    }
+
+    #[test]
+    fn test_bounding_box() {
+        let bb: BoundingBox<i64> = [pt!(1, 2), pt!(-3, -2), pt!(-1, -1), pt!(-4, -1), pt!(0, 3)].iter().copied().collect();
+        assert_eq!(bb.min_x(), -4);
+        assert_eq!(bb.max_x(), 1);
+        assert_eq!(bb.min_y(), -2);
+        assert_eq!(bb.max_y(), 3);
     }
 }
