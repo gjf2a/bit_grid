@@ -22,13 +22,6 @@ pub fn span(min: i64, max: i64) -> i64 {
     1 + max - min
 }
 
-fn height_width(s: &str) -> (usize, usize) {
-    (
-        s.trim().lines().count(),
-        s.trim().lines().next().unwrap().trim().chars().count(),
-    )
-}
-
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct BitGrid {
     bits: BitArray,
@@ -37,46 +30,19 @@ pub struct BitGrid {
 
 impl Default for BitGrid {
     fn default() -> Self {
-        Self::new(0, 0, 0, 0)
-    }
-}
-
-impl FromIterator<(GridPoint, bool)> for BitGrid {
-    fn from_iter<T: IntoIterator<Item = (GridPoint, bool)>>(iter: T) -> Self {
-        let mut points = vec![];
-        for v in iter {
-            points.push(v);
+        Self {
+            bounds: BoundingBox::new(pt!(0, 0), pt!(0, 0)),
+            bits: BitArray::zeros(1),
         }
-        let mut result = Self::setup(&points);
-        for (p, value) in points {
-            result.set(p, value);
-        }
-        result
-    }
-}
-
-impl FromStr for BitGrid {
-    type Err = anyhow::Error;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let (height, width) = height_width(s);
-        let mut result = Self::new(0, width as i64 - 1, 0, height as i64 - 1);
-        result.destringify(|n| n as i64, s)?;
-        Ok(result)
-    }
-}
-
-impl Display for BitGrid {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.stringify())
     }
 }
 
 impl BitGrid {
-    pub fn new(min_x: i64, max_x: i64, min_y: i64, max_y: i64) -> Self {
-        let num_zeros = span(min_x, max_x) * span(min_y, max_y);
+    fn zeros(bounds: BoundingBox<i64>) -> Self {
+        let num_zeros =
+            span(bounds.min()[0], bounds.max()[0]) * span(bounds.min()[1], bounds.max()[1]);
         Self {
-            bounds: BoundingBox::new(pt!(min_x, min_y), pt!(max_x, max_y)),
+            bounds,
             bits: BitArray::zeros(num_zeros as u64),
         }
     }
@@ -104,14 +70,6 @@ impl BitGrid {
             .collect()
     }
 
-    fn setup(points: &Vec<(GridPoint, bool)>) -> Self {
-        let min_x = points.iter().map(|v| v.0[0]).min().unwrap();
-        let max_x = points.iter().map(|v| v.0[0]).max().unwrap();
-        let min_y = points.iter().map(|v| v.0[1]).min().unwrap();
-        let max_y = points.iter().map(|v| v.0[1]).max().unwrap();
-        Self::new(min_x, max_x, min_y, max_y)
-    }
-
     pub fn num_bits(&self) -> u64 {
         self.width() as u64 * self.height() as u64
     }
@@ -129,28 +87,36 @@ impl BitGrid {
     }
 
     pub fn get(&self, p: &GridPoint) -> bool {
-        self.index_1d(p).map_or(false, |i| self.bits.is_set(i))
+        if self.bounds.in_bounds(p) {
+            self.bits.is_set(self.index_1d(p))
+        } else {
+            false
+        }
     }
 
     pub fn set(&mut self, p: GridPoint, value: bool) {
-        match self.index_1d(&p) {
-            Some(i) => {
-                self.bits.set(i, value);
-            }
-            None => {
-                if value {
-                    if self.bounds.singular() && self.ones().next().is_none() {
-                        self.bounds = BoundingBox::new(p, p);
-                        self.bits.set(self.unchecked_index_1d(&p), true);
-                    } else {
-                        let min = self.bounds.min().element_min(&p);
-                        let max = self.bounds.max().element_max(&p);
-                        self.resize(min, max);
-                        self.bits.set(self.unchecked_index_1d(&p), true);
-                    }
+        if self.bounds.in_bounds(&p) {
+            self.bits.set(self.index_1d(&p), value);
+        } else if value {
+            if self.ones().next().is_none() {
+                self.bounds = BoundingBox::new(p, p);
+                self.set_to_one_unchecked(&p);
+            } else {
+                let mut new_bounds: BoundingBox<i64> = self.ones().collect();
+                new_bounds.observe(&p);
+                let mut new_self = Self::zeros(new_bounds);
+                for one in self.ones() {
+                    assert!(new_self.bounds.in_bounds(&one));
+                    new_self.set_to_one_unchecked(&one);
                 }
+                std::mem::swap(&mut new_self, self);
+                self.set_to_one_unchecked(&p);
             }
         }
+    }
+
+    fn set_to_one_unchecked(&mut self, p: &GridPoint) {
+        self.bits.set(self.index_1d(&p), true);
     }
 
     pub fn width(&self) -> i64 {
@@ -210,44 +176,11 @@ impl BitGrid {
         s
     }
 
-    fn destringify<F: Fn(usize) -> i64>(&mut self, indexer: F, s: &str) -> anyhow::Result<()> {
-        for (y, row) in s.trim().lines().enumerate() {
-            for (x, cell) in row.trim().char_indices() {
-                let value = match cell {
-                    '1' | 'X' | '*' => true,
-                    '0' | 'O' | '.' => false,
-                    _ => return Err(anyhow::anyhow!("Illegal char: {cell}")),
-                };
-                self.set(pt!(indexer(x), indexer(y)), value);
-            }
-        }
-        Ok(())
-    }
-
     pub fn overlapping_counts(&self, other: &Self) -> u64 {
         (self & other).count_ones()
     }
 
-    fn resize(&mut self, min: GridPoint, max: GridPoint) {
-        if min != self.bounds.min() || max != self.bounds.max() {
-            let mut new_self = Self::new(min[0], max[0], min[1], max[1]);
-            for (p, value) in self.iter() {
-                assert!(new_self.bounds.in_bounds(&p));
-                new_self.bits.set(new_self.unchecked_index_1d(&p), value);
-            }
-            std::mem::swap(&mut new_self, self);
-        }
-    }
-
-    fn index_1d(&self, p: &GridPoint) -> Option<u64> {
-        if self.bounds.in_bounds(p) {
-            Some(self.unchecked_index_1d(p))
-        } else {
-            None
-        }
-    }
-
-    fn unchecked_index_1d(&self, p: &GridPoint) -> u64 {
+    fn index_1d(&self, p: &GridPoint) -> u64 {
         let grid_x = p[0] - self.bounds.min()[0];
         let grid_y = p[1] - self.bounds.min()[1];
         (grid_y * self.width() + grid_x) as u64
@@ -258,6 +191,28 @@ impl BitGrid {
         let uy = i / self.width();
         let ux = i % self.width();
         pt!(ux + self.bounds.min()[0], uy + self.bounds.min()[1])
+    }
+
+    fn to_bit(c: char) -> anyhow::Result<bool> {
+        Ok(match c {
+            '1' | 'X' | '*' => true,
+            '0' | 'O' | '.' => false,
+            _ => return Err(anyhow::anyhow!("Illegal char: {c}")),
+        })
+    }
+
+    fn from_str_iter(
+        s: &str,
+    ) -> Result<impl Iterator<Item = (Point<i64, 2>, bool)>, anyhow::Error> {
+        for line in s.trim().lines() {
+            for c in line.trim().chars() {
+                Self::to_bit(c)?;
+            }
+        }
+        Ok(s.trim().lines().enumerate().flat_map(|(y, line)| {
+            line.trim().char_indices()
+                .map(move |(x, c)| (pt!(x as i64, y as i64), Self::to_bit(c).unwrap()))
+        }))
     }
 }
 
@@ -290,6 +245,30 @@ impl BitXor for &BitGrid {
             union.set(one, !self.get(&one));
         }
         union
+    }
+}
+
+impl Display for BitGrid {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.stringify())
+    }
+}
+
+impl FromStr for BitGrid {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(Self::from_str_iter(s)?.collect())
+    }
+}
+
+impl FromIterator<(GridPoint, bool)> for BitGrid {
+    fn from_iter<T: IntoIterator<Item = (GridPoint, bool)>>(iter: T) -> Self {
+        let mut result = Self::default();
+        for (p, value) in iter {
+            result.set(p, value);
+        }
+        result
     }
 }
 
@@ -363,11 +342,11 @@ mod tests {
 
     #[test]
     fn test_from_str() {
-        let grid_str = "1101000\n1011000\n0010000\n";
+        let grid_str = "1101\n1011\n0010\n";
         let grid = grid_str.parse::<BitGrid>().unwrap();
         assert_eq!(format!("{grid}\n"), grid_str);
         assert_eq!(grid.height(), 3);
-        assert_eq!(grid.width(), 7);
+        assert_eq!(grid.width(), 4);
         assert_eq!(grid.count_ones(), 7);
         for (x, y, value) in [
             (0, 0, true),
@@ -385,7 +364,6 @@ mod tests {
             (4, 1, false),
         ] {
             assert_eq!(grid.get(&pt!(x, y)), value);
-            assert!(grid.bounds.in_bounds(&pt!(x, y)));
         }
 
         // out of bounds - still false
@@ -396,17 +374,25 @@ mod tests {
     }
 
     #[test]
+    fn test_no_ones() {
+        let grid = BitGrid::default();
+        let ones = grid.ones().collect::<Vec<_>>();
+        assert_eq!(ones.len(), 0);
+    }
+
+    #[test]
     fn test_from_iter() {
         let pvs = [(pt!(2, 2), true), (pt!(-1, 3), false), (pt!(3, -2), true)];
         let test_points = pvs.iter().copied().collect::<HashMap<_, _>>();
         let grid = pvs.iter().copied().collect::<BitGrid>();
+        println!("{grid}");
         for p in grid.ones() {
             assert!(test_points.get(&p).unwrap_or(&false));
         }
         assert_eq!(grid.count_ones(), 2);
         assert_eq!(grid.count_ones(), grid.ones().count() as u64);
-        assert_eq!(grid.width(), 5);
-        assert_eq!(grid.height(), 6);
+        assert_eq!(grid.width(), 4);
+        assert_eq!(grid.height(), 5);
 
         let ones1 = grid
             .iter()
@@ -562,15 +548,15 @@ mod tests {
     #[test]
     fn test_resize() {
         let mut a: BitGrid = "101\n011\n000".parse().unwrap();
-        assert_eq!(9, a.bits().len());
+        assert_eq!(6, a.bits().len());
         assert_eq!(1, a.words_used());
         a.set(pt!(-2, -2), true);
-        assert_eq!(25, a.bits.len());
+        assert_eq!(20, a.bits.len());
         assert_eq!(1, a.words_used());
-        let ex1 = "10000\n00000\n00101\n00011\n00000";
+        let ex1 = "10000\n00000\n00101\n00011";
         assert_eq!(ex1, format!("{a}").as_str());
         assert_eq!(a.bounds.min(), pt!(-2, -2));
-        assert_eq!(a.bounds.max(), pt!(2, 2));
+        assert_eq!(a.bounds.max(), pt!(2, 1));
         a.set(pt!(-2, 3), true);
 
         let ex2 = "10000\n00000\n00101\n00011\n00000\n10000";
@@ -582,7 +568,7 @@ mod tests {
     }
 
     #[test]
-    fn test_translation() {
+    fn test_translated() {
         let a: BitGrid = "010\n111\n010".parse().unwrap();
         let zeroed = a.translated(pt!(-1, -1));
         let expected_ones = vec![pt!(0, -1), pt!(-1, 0), pt!(0, 0), pt!(1, 0), pt!(0, 1)];
@@ -596,6 +582,10 @@ mod tests {
         let expect_x: BitGrid = "0110\n0101\n1101\n0010".parse().unwrap();
         let expect_y: BitGrid = "0100\n1011\n1010\n0110".parse().unwrap();
 
+        println!("x_reflect:\n{}", map.x_axis_reflection());
+        println!("Expecting:\n{expect_x}");
+        println!("y_reflect:\n{}", map.y_axis_reflection());
+        println!("Expecting:\n{expect_y}");
         assert_eq!(map.x_axis_reflection(), expect_x);
         assert_eq!(map.y_axis_reflection(), expect_y);
     }
