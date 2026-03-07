@@ -164,7 +164,7 @@ impl BitGrid {
     }
 
     fn stringify(&self) -> String {
-        let mut s = String::new();
+        let mut s = format!("{}\n", self.bounds.min());
         for (p, value) in self.iter() {
             if p[1] > self.bounds.min()[1] && p[0] == self.bounds.min()[0] {
                 s.push('\n');
@@ -198,21 +198,6 @@ impl BitGrid {
             '0' | 'O' | '.' => false,
             _ => return Err(anyhow::anyhow!("Illegal char: {c}")),
         })
-    }
-
-    fn from_str_iter(
-        s: &str,
-    ) -> Result<impl Iterator<Item = (Point<i64, 2>, bool)>, anyhow::Error> {
-        for line in s.trim().lines() {
-            for c in line.trim().chars() {
-                Self::to_bit(c)?;
-            }
-        }
-        Ok(s.trim().lines().enumerate().flat_map(|(y, line)| {
-            line.trim()
-                .char_indices()
-                .map(move |(x, c)| (pt!(x as i64, y as i64), Self::to_bit(c).unwrap()))
-        }))
     }
 }
 
@@ -258,7 +243,19 @@ impl FromStr for BitGrid {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(Self::from_str_iter(s)?.collect())
+        let mut lines = s.trim().lines().filter(|line| line.len() > 0);
+        let start_point = lines.by_ref().next().ok_or(anyhow::anyhow!("No content"))?.parse::<GridPoint>()?;
+        let height = lines.clone().count();
+        let width = lines.clone().next().ok_or(anyhow::anyhow!("No grid entries"))?.trim().len();
+        let mut result = Self::zeros(BoundingBox::new(start_point, start_point + pt!((width - 1) as i64, (height - 1) as i64)));
+        for (y, line) in lines.enumerate() {
+            for (x, c) in line.trim().char_indices() {
+                if Self::to_bit(c)? {
+                    result.set_to_one_unchecked(&(start_point + pt!(x as i64, y as i64)));
+                }
+            }
+        }
+        Ok(result)
     }
 }
 
@@ -361,7 +358,7 @@ mod tests {
 
     #[test]
     fn test_from_str() {
-        let grid_str = "1101\n1011\n0010\n";
+        let grid_str = "(0,0)\n1101\n1011\n0010\n";
         let grid = grid_str.parse::<BitGrid>().unwrap();
         assert_eq!(format!("{grid}\n"), grid_str);
         assert_eq!(grid.height(), 3);
@@ -447,11 +444,11 @@ mod tests {
     #[test]
     fn test_overlapping_counts() {
         for (one, two, count) in [
-            ("101\n010", "110\n110", 2),
-            ("101\n010", "010\n101", 0),
-            ("101\n010", "101\n010", 3),
-            ("111\n111", "111\n111", 6),
-            ("000\n000", "000\n000", 0),
+            ("(0,0)\n101\n010", "(0,0)\n110\n110", 2),
+            ("(0,0)\n101\n010", "(0,0)\n010\n101", 0),
+            ("(0,0)\n101\n010", "(0,0)\n101\n010", 3),
+            ("(0,0)\n111\n111", "(0,0)\n111\n111", 6),
+            ("(0,0)\n000\n000", "(0,0)\n000\n000", 0),
         ] {
             let one = one.parse::<BitGrid>().unwrap();
             let two = two.parse::<BitGrid>().unwrap();
@@ -461,7 +458,7 @@ mod tests {
 
     #[test]
     fn test_manhattan_iter() {
-        let test_grid = "010\n100\n101".parse::<BitGrid>().unwrap();
+        let test_grid = "(0,0)\n010\n100\n101".parse::<BitGrid>().unwrap();
         for (p, neighbors) in [
             (
                 pt!(0, 0),
@@ -498,7 +495,7 @@ mod tests {
 
     #[test]
     fn test_ones_touching_zeros() {
-        let test_grid = "
+        let test_grid = "(0,0)
         10100000100000011
         11111010101011011
         10110000001000011
@@ -542,43 +539,43 @@ mod tests {
 
     #[test]
     fn test_bit_or() {
-        let a: BitGrid = "101\n011\n000".parse().unwrap();
-        let b: BitGrid = "001\n101\n010".parse().unwrap();
-        let c: BitGrid = "101\n111\n010".parse().unwrap();
+        let a: BitGrid = "(0,0)\n101\n011\n000".parse().unwrap();
+        let b: BitGrid = "(0,0)\n001\n101\n010".parse().unwrap();
+        let c: BitGrid = "(0,0)\n101\n111\n010".parse().unwrap();
         assert_eq!((&a | &b), c);
     }
 
     #[test]
     fn test_bit_and() {
-        let a: BitGrid = "101\n011\n000".parse().unwrap();
-        let b: BitGrid = "001\n101\n010".parse().unwrap();
+        let a: BitGrid = "(0,0)\n101\n011\n000".parse().unwrap();
+        let b: BitGrid = "(0,0)\n001\n101\n010".parse().unwrap();
         let c: BitGrid = [pt!(2, 0), pt!(2, 1)].iter().collect();
         assert_eq!((&a & &b), c);
     }
 
     #[test]
     fn test_bit_xor() {
-        let a: BitGrid = "101\n011\n000".parse().unwrap();
-        let b: BitGrid = "001\n101\n010".parse().unwrap();
-        let c: BitGrid = "100\n110\n010".parse().unwrap();
+        let a: BitGrid = "(0,0)\n101\n011\n000".parse().unwrap();
+        let b: BitGrid = "(0,0)\n001\n101\n010".parse().unwrap();
+        let c: BitGrid = "(0,0)\n10\n11\n01".parse().unwrap();
         assert_eq!((&a ^ &b), c);
     }
 
     #[test]
     fn test_resize() {
-        let mut a: BitGrid = "101\n011\n000".parse().unwrap();
-        assert_eq!(6, a.bits().len());
+        let mut a: BitGrid = "(0,0)\n101\n011\n000".parse().unwrap();
+        assert_eq!(9, a.bits().len());
         assert_eq!(1, a.words_used());
         a.set(pt!(-2, -2), true);
         assert_eq!(20, a.bits.len());
         assert_eq!(1, a.words_used());
-        let ex1 = "10000\n00000\n00101\n00011";
+        let ex1 = "(-2,-2)\n10000\n00000\n00101\n00011";
         assert_eq!(ex1, format!("{a}").as_str());
         assert_eq!(a.bounds.min(), pt!(-2, -2));
         assert_eq!(a.bounds.max(), pt!(2, 1));
         a.set(pt!(-2, 3), true);
 
-        let ex2 = "10000\n00000\n00101\n00011\n00000\n10000";
+        let ex2 = "(-2,-2)\n10000\n00000\n00101\n00011\n00000\n10000";
         assert_eq!(ex2, format!("{a}").as_str());
         assert_eq!(a.bounds.min(), pt!(-2, -2));
         assert_eq!(a.bounds.max(), pt!(2, 3));
@@ -588,7 +585,7 @@ mod tests {
 
     #[test]
     fn test_translated() {
-        let a: BitGrid = "010\n111\n010".parse().unwrap();
+        let a: BitGrid = "(0,0)\n010\n111\n010".parse().unwrap();
         let zeroed = a.translated(pt!(-1, -1));
         let expected_ones = vec![pt!(0, -1), pt!(-1, 0), pt!(0, 0), pt!(1, 0), pt!(0, 1)];
         let zeroed_ones = zeroed.ones().collect::<Vec<_>>();
@@ -597,14 +594,10 @@ mod tests {
 
     #[test]
     fn test_reflection() {
-        let map: BitGrid = "0010\n1101\n0101\n0110".parse().unwrap();
-        let expect_x: BitGrid = "0110\n0101\n1101\n0010".parse().unwrap();
-        let expect_y: BitGrid = "0100\n1011\n1010\n0110".parse().unwrap();
+        let map: BitGrid = "(0,0)\n0010\n1101\n0101\n0110".parse().unwrap();
+        let expect_x: BitGrid = "(0,0)\n0110\n0101\n1101\n0010".parse().unwrap();
+        let expect_y: BitGrid = "(0,0)\n0100\n1011\n1010\n0110".parse().unwrap();
 
-        println!("x_reflect:\n{}", map.x_axis_reflection());
-        println!("Expecting:\n{expect_x}");
-        println!("y_reflect:\n{}", map.y_axis_reflection());
-        println!("Expecting:\n{expect_y}");
         assert_eq!(map.x_axis_reflection(), expect_x);
         assert_eq!(map.y_axis_reflection(), expect_y);
     }
