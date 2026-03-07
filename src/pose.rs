@@ -84,19 +84,3 @@ impl<A: Angle + Sub<Output = A> + Copy> SubAssign for RobotPose<A> {
         *self = *self - rhs;
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use crate::{
-        angle::{Degrees, Radians},
-        point::FloatPoint,
-    };
-
-    #[test]
-    fn test_float_point_convert() {
-        let fp = FloatPoint::new([3.0, 4.0]);
-        let (r, theta): (f64, Radians) = fp.into();
-        let theta_d: Degrees = theta.into();
-        println!("{r} {theta_d}");
-    }
-}

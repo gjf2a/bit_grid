@@ -448,7 +448,6 @@ mod tests {
         }
         assert_eq!(ones1, ones2);
         for (p, value) in grid.iter() {
-            println!("p: {p} {value}");
             match test_points.get(&p) {
                 Some(expected) => {
                     assert_eq!(value, *expected);
