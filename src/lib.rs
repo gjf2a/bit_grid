@@ -22,10 +22,22 @@ pub fn span(min: i64, max: i64) -> i64 {
     1 + max - min
 }
 
-#[derive(Clone, PartialEq, Eq, Debug)]
+#[derive(Clone, Eq, Debug)]
 pub struct BitGrid {
     bits: BitArray,
     bounds: BoundingBox<i64>,
+}
+
+impl PartialEq for BitGrid {
+    fn eq(&self, other: &Self) -> bool {
+        let self_count = self.ones().count();
+        let other_count = other.ones().count();
+        if self_count == other_count {
+            self.ones().zip(other.ones()).all(|(a, b)| a == b)
+        } else {
+            false
+        }
+    }
 }
 
 impl Default for BitGrid {
@@ -102,7 +114,8 @@ impl BitGrid {
                 self.bounds = BoundingBox::new(p, p);
                 self.set_to_one_unchecked(&p);
             } else {
-                let mut new_bounds: BoundingBox<i64> = self.ones().collect();
+                let new_bounds: Option<BoundingBox<i64>> = self.ones().collect();
+                let mut new_bounds = new_bounds.unwrap();
                 new_bounds.observe(&p);
                 let mut new_self = Self::zeros(new_bounds);
                 for one in self.ones() {
@@ -390,6 +403,21 @@ mod tests {
     }
 
     #[test]
+    fn test_from_str_2() {
+        let str = "(-2,-1)\n11\n01\n10\n00";
+        let src: BitGrid = str.parse().unwrap();
+        assert_eq!(format!("{src}"), str);
+        assert_eq!(src.bounds, BoundingBox::new(pt!(-2, -1), pt!(-1, 2)));
+        let cleared: BitGrid = src.ones().collect();
+        for (s, c) in src.ones().zip(cleared.ones()) {
+            assert_eq!(s, c);
+        }
+        assert_eq!(src.ones().count(), cleared.ones().count());
+        assert_eq!(cleared.bounds, BoundingBox::new(pt!(-2, -1), pt!(-1, 1)));
+        assert_eq!(src, cleared);
+    }
+
+    #[test]
     fn test_no_ones() {
         let grid = BitGrid::default();
         let ones = grid.ones().collect::<Vec<_>>();
@@ -401,13 +429,12 @@ mod tests {
         let pvs = [(pt!(2, 2), true), (pt!(-1, 3), false), (pt!(3, -2), true)];
         let test_points = pvs.iter().copied().collect::<HashMap<_, _>>();
         let grid = pvs.iter().copied().collect::<BitGrid>();
-        println!("{grid}");
         for p in grid.ones() {
             assert!(test_points.get(&p).unwrap_or(&false));
         }
         assert_eq!(grid.count_ones(), 2);
         assert_eq!(grid.count_ones(), grid.ones().count() as u64);
-        assert_eq!(grid.width(), 4);
+        assert_eq!(grid.width(), 2);
         assert_eq!(grid.height(), 5);
 
         let ones1 = grid
@@ -628,6 +655,21 @@ mod tests {
             for bit in test.iter() {
                 assert!(bits.get(bit));
             }
+        }
+    }
+
+    #[test]
+    fn test_eq() {
+        for (a, b, expected) in [
+            ("(0, 0)\n11\n01", "(0, 0)\n11\n01", true),
+            ("(0, 0)\n11\n01", "(1, 0)\n11\n01", false),
+            ("(0, 0)\n11\n01", "(0, 0)\n110\n010", true),
+            ("(0, 0)\n11\n01", "(-1, 0)\n0110\n0010", true),
+            ("(0, 0)\n11\n01", "(-1, -1)\n0110\n0010", false),
+        ] {
+            let a: BitGrid = a.parse().unwrap();
+            let b: BitGrid = b.parse().unwrap();
+            assert_eq!(a == b, expected);
         }
     }
 }

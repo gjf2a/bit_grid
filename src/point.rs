@@ -354,13 +354,23 @@ impl<N: NumType> Add<Point<N, 2>> for BoundingBox<N> {
     }
 }
 
-impl<N: NumType> FromIterator<Point<N, 2>> for BoundingBox<N> {
+impl<N: NumType> FromIterator<Point<N, 2>> for Option<BoundingBox<N>> {
     fn from_iter<T: IntoIterator<Item = Point<N, 2>>>(iter: T) -> Self {
-        let mut result = Self::default();
+        let mut result: Option<BoundingBox<N>> = None;
         for point in iter {
-            result.observe(&point);
+            if let Some(result) = &mut result {
+                result.observe(&point);
+            } else {
+                result = Some(BoundingBox::new(point, point));
+            } 
         }
         result
+    }
+}
+
+impl<'a, N: NumType> FromIterator<&'a Point<N, 2>> for Option<BoundingBox<N>> {
+    fn from_iter<T: IntoIterator<Item = &'a Point<N, 2>>>(iter: T) -> Self {
+        iter.into_iter().copied().collect()
     }
 }
 
@@ -453,10 +463,11 @@ mod tests {
 
     #[test]
     fn test_bounding_box() {
-        let bb: BoundingBox<i64> = [pt!(1, 2), pt!(-3, -2), pt!(-1, -1), pt!(-5, -1), pt!(0, 4)]
+        let bb: Option<BoundingBox<i64>> = [pt!(1, 2), pt!(-3, -2), pt!(-1, -1), pt!(-5, -1), pt!(0, 4)]
             .iter()
             .copied()
             .collect();
+        let bb = bb.unwrap();
         assert_eq!(bb.min()[0], -5);
         assert_eq!(bb.max()[0], 1);
         assert_eq!(bb.min()[1], -2);
@@ -485,6 +496,22 @@ mod tests {
         {
             assert_eq!(moved.in_bounds(p), *inside);
         }
+    }
+
+    #[test]
+    fn test_bounding_box_observe() {
+        let mut bb = BoundingBox { min: Point { coords: [-2, -1] }, max: Point { coords: [-2, -1] } };
+        bb.observe(&pt!(-1, -1));
+        let expected = BoundingBox { min: Point { coords: [-2, -1] }, max: Point { coords: [-1, -1] } };
+        assert_eq!(expected, bb);
+    }
+
+    #[test]
+    fn test_bounding_box_collect() {
+        let bb: Option<BoundingBox<i64>> = [pt!(-2, -1)].iter().copied().collect();
+        let bb = bb.unwrap();
+        let expected = BoundingBox { min: Point { coords: [-2, -1] }, max: Point { coords: [-2, -1] } };
+        assert_eq!(bb, expected);
     }
 
     #[test]
