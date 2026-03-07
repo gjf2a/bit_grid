@@ -299,7 +299,7 @@ impl<N: NumType, const S: usize> Div<N> for Point<N, S> {
     }
 }
 
-#[derive(Default, Clone, Copy, Debug)]
+#[derive(Default, Clone, Copy, Debug, Eq, PartialEq)]
 pub struct BoundingBox<N: NumType> {
     min: Point<N, 2>,
     max: Point<N, 2>,
@@ -322,28 +322,31 @@ impl<N: NumType> BoundingBox<N> {
         self.max = self.max.element_max(&p);
     }
 
-    pub fn width(&self) -> N {
-        self.max[0] - self.min[0]
+    pub fn min(&self) -> Point<N, 2> {
+        self.min
     }
 
-    pub fn height(&self) -> N {
-        self.max[1] - self.min[1]
+    pub fn max(&self) -> Point<N, 2> {
+        self.max
     }
 
-    pub fn min_x(&self) -> N {
-        self.min[0]
+    pub fn center(&self) -> Point<N, 2> {
+        (self.min + self.max) / (N::one() + N::one())
     }
 
-    pub fn max_x(&self) -> N {
-        self.max[0]
+    pub fn in_bounds(&self, p: &Point<N, 2>) -> bool {
+        self.min[0] <= p[0] && p[0] <= self.max[0] && self.min[1] <= p[1] && p[1] <= self.max[1]
     }
+}
 
-    pub fn min_y(&self) -> N {
-        self.min[1]
-    }
-
-    pub fn max_y(&self) -> N {
-        self.max[1]
+impl<N: NumType> Add<Point<N, 2>> for BoundingBox<N> {
+    type Output = Self;
+    
+    fn add(self, rhs: Point<N, 2>) -> Self::Output {
+        Self {
+            min: self.min + rhs,
+            max: self.max + rhs,
+        }
     }
 }
 
@@ -437,10 +440,32 @@ mod tests {
 
     #[test]
     fn test_bounding_box() {
-        let bb: BoundingBox<i64> = [pt!(1, 2), pt!(-3, -2), pt!(-1, -1), pt!(-4, -1), pt!(0, 3)].iter().copied().collect();
-        assert_eq!(bb.min_x(), -4);
-        assert_eq!(bb.max_x(), 1);
-        assert_eq!(bb.min_y(), -2);
-        assert_eq!(bb.max_y(), 3);
+        let bb: BoundingBox<i64> = [pt!(1, 2), pt!(-3, -2), pt!(-1, -1), pt!(-5, -1), pt!(0, 4)].iter().copied().collect();
+        assert_eq!(bb.min()[0], -5);
+        assert_eq!(bb.max()[0], 1);
+        assert_eq!(bb.min()[1], -2);
+        assert_eq!(bb.max()[1], 4);
+        assert_eq!(bb.center(), pt!(-2, 1));
+
+        let moved = bb + pt!(-1, 1);
+        assert_eq!(moved.min()[0], -6);
+        assert_eq!(moved.max()[0], 0);
+        assert_eq!(moved.min()[1], -1);
+        assert_eq!(moved.max()[1], 5);
+        assert_eq!(moved.center(), pt!(-3, 2));
+
+        for (p, inside) in [
+            (pt!(0, 0), true),
+            (pt!(1, -1), false),
+            (pt!(2, 2), false),
+            (pt!(-6, -1), true),
+            (pt!(-6, 5), true),
+            (pt!(0, -1), true),
+            (pt!(0, 5), true),
+            (pt!(-7, -1), false),
+            (pt!(0, 6), false),
+            ].iter() {
+            assert_eq!(moved.in_bounds(p), *inside);
+        }
     }
 }

@@ -32,8 +32,7 @@ fn height_width(s: &str) -> (usize, usize) {
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct BitGrid {
     bits: BitArray,
-    min: GridPoint,
-    max: GridPoint,
+    bounds: BoundingBox<i64>,
 }
 
 impl Default for BitGrid {
@@ -77,8 +76,7 @@ impl BitGrid {
     pub fn new(min_x: i64, max_x: i64, min_y: i64, max_y: i64) -> Self {
         let num_zeros = span(min_x, max_x) * span(min_y, max_y);
         Self {
-            min: pt!(min_x, min_y),
-            max: pt!(max_x, max_y),
+            bounds: BoundingBox::new(pt!(min_x, min_y), pt!(max_x, max_y)),
             bits: BitArray::zeros(num_zeros as u64),
         }
     }
@@ -86,21 +84,20 @@ impl BitGrid {
     pub fn translated(&self, translation: GridPoint) -> Self {
         Self {
             bits: self.bits.clone(),
-            min: self.min + translation,
-            max: self.max + translation,
+            bounds: self.bounds + translation,
         }
     }
 
     pub fn center(&self) -> GridPoint {
-        pt!((self.min[0] + self.max[0]) / 2, (self.min[1] + self.max[1]) / 2)
+        self.bounds.center()
     }
 
     pub fn x_axis_reflection(&self) -> Self {
-        self.ones().map(|p| pt!(p[0], self.max[1] - p[1])).collect()
+        self.ones().map(|p| pt!(p[0], self.bounds.max()[1] - p[1])).collect()
     }
 
     pub fn y_axis_reflection(&self) -> Self {
-        self.ones().map(|p| pt!(self.max[0] - p[0], p[1])).collect()
+        self.ones().map(|p| pt!(self.bounds.max()[0] - p[0], p[1])).collect()
     }
 
     fn setup(points: &Vec<(GridPoint, bool)>) -> Self {
@@ -116,7 +113,7 @@ impl BitGrid {
     }
 
     pub fn bounding_box(&self) -> BoundingBox<i64> {
-        BoundingBox::new(self.min, self.max)
+        self.bounds.clone()
     }
 
     pub fn manhattan_neighbors(&self, p: &GridPoint) -> impl Iterator<Item = (GridPoint, bool)> {
@@ -137,8 +134,8 @@ impl BitGrid {
                 self.bits.set(i, value);
             }
             None => {
-                let min = self.min.element_min(&p);
-                let max = self.max.element_max(&p);
+                let min = self.bounds.min().element_min(&p);
+                let max = self.bounds.max().element_max(&p);
                 self.resize(min, max);
                 self.bits.set(self.unchecked_index_1d(&p), value);
             }
@@ -146,29 +143,20 @@ impl BitGrid {
     }
 
     pub fn width(&self) -> i64 {
-        span(self.min[0], self.max[0])
+        span(self.bounds.min()[0], self.bounds.max()[0])
     }
 
     pub fn height(&self) -> i64 {
-        span(self.min[1], self.max[1])
+        span(self.bounds.min()[1], self.bounds.max()[1])
     }
 
     pub fn coord_iter(&self) -> CoordIter {
         CoordIter {
-            max_y: self.max[1],
-            min_x: self.min[0],
-            max_x: self.max[0],
-            x: self.min[0],
-            y: self.min[1],
-        }
-    }
-
-    fn with_bits(&self, alt_bits: BitArray) -> Self {
-        assert_eq!(alt_bits.len(), self.num_bits());
-        Self {
-            min: self.min,
-            max: self.max,
-            bits: alt_bits,
+            max_y: self.bounds.max()[1],
+            min_x: self.bounds.min()[0],
+            max_x: self.bounds.max()[0],
+            x: self.bounds.min()[0],
+            y: self.bounds.min()[1],
         }
     }
 
@@ -176,10 +164,6 @@ impl BitGrid {
         let base = self.bits().len() / 64;
         let extra = if self.bits().len() % 64 > 0 { 1 } else { 0 };
         base + extra
-    }
-
-    fn in_bounds(&self, p: &GridPoint) -> bool {
-        self.min[0] <= p[0] && p[0] <= self.max[0] && self.min[1] <= p[1] && p[1] <= self.max[1]
     }
 
     pub fn iter(&self) -> impl Iterator<Item = (GridPoint, bool)> {
@@ -206,7 +190,7 @@ impl BitGrid {
     fn stringify(&self) -> String {
         let mut s = String::new();
         for (p, value) in self.iter() {
-            if p[1] > self.min[1] && p[0] == self.min[0] {
+            if p[1] > self.bounds.min()[1] && p[0] == self.bounds.min()[0] {
                 s.push('\n');
             }
             let c = if value { '1' } else { '0' };
@@ -229,19 +213,15 @@ impl BitGrid {
         Ok(())
     }
 
-    pub fn zero_clone(&self) -> Self {
-        self.with_bits(BitArray::zeros(self.num_bits()))
-    }
-
     pub fn overlapping_counts(&self, other: &Self) -> u64 {
         (self & other).count_ones()
     }
 
     fn resize(&mut self, min: GridPoint, max: GridPoint) {
-        if min != self.min || max != self.max {
+        if min != self.bounds.min() || max != self.bounds.max() {
             let mut new_self = Self::new(min[0], max[0], min[1], max[1]);
             for (p, value) in self.iter() {
-                assert!(new_self.in_bounds(&p));
+                assert!(new_self.bounds.in_bounds(&p));
                 new_self.bits.set(new_self.unchecked_index_1d(&p), value);
             }
             std::mem::swap(&mut new_self, self);
@@ -249,7 +229,7 @@ impl BitGrid {
     }
 
     fn index_1d(&self, p: &GridPoint) -> Option<u64> {
-        if self.in_bounds(p) {
+        if self.bounds.in_bounds(p) {
             Some(self.unchecked_index_1d(p))
         } else {
             None
@@ -257,8 +237,8 @@ impl BitGrid {
     }
 
     fn unchecked_index_1d(&self, p: &GridPoint) -> u64 {
-        let grid_x = p[0] - self.min[0];
-        let grid_y = p[1] - self.min[1];
+        let grid_x = p[0] - self.bounds.min()[0];
+        let grid_y = p[1] - self.bounds.min()[1];
         (grid_y * self.width() + grid_x) as u64
     }
 
@@ -266,7 +246,7 @@ impl BitGrid {
         let i = i as i64;
         let uy = i / self.width();
         let ux = i % self.width();
-        pt!(ux + self.min[0], uy + self.min[1])
+        pt!(ux + self.bounds.min()[0], uy + self.bounds.min()[1])
     }
 }
 
@@ -387,21 +367,14 @@ mod tests {
             (4, 1, false),
         ] {
             assert_eq!(grid.get(&pt!(x, y)), value);
-            assert!(grid.in_bounds(&pt!(x, y)));
+            assert!(grid.bounds.in_bounds(&pt!(x, y)));
         }
 
         // out of bounds - still false
         for (x, y) in [(-1, 0), (3, 3), (1, 3), (1, -3)] {
             assert_eq!(grid.get(&pt!(x, y)), false);
-            assert!(!grid.in_bounds(&pt!(x, y)));
+            assert!(!grid.bounds.in_bounds(&pt!(x, y)));
         }
-
-        let zero_grid = grid.zero_clone();
-        assert_eq!(zero_grid.min, grid.min);
-        assert_eq!(zero_grid.max, grid.max);
-        assert_eq!(zero_grid.width(), grid.width());
-        assert_eq!(zero_grid.height(), grid.height());
-        assert!(zero_grid.iter().all(|(_, value)| !value));
     }
 
     #[test]
@@ -438,10 +411,6 @@ mod tests {
                 }
             }
         }
-
-        let zeros = grid.zero_clone();
-        assert_eq!(zeros.min, grid.min);
-        assert_eq!(zeros.max, grid.max);
     }
 
     #[test]
@@ -582,14 +551,14 @@ mod tests {
         assert_eq!(1, a.words_used());
         let ex1 = "10000\n00000\n00101\n00011\n00000";
         assert_eq!(ex1, format!("{a}").as_str());
-        assert_eq!(a.min, pt!(-2, -2));
-        assert_eq!(a.max, pt!(2, 2));
+        assert_eq!(a.bounds.min(), pt!(-2, -2));
+        assert_eq!(a.bounds.max(), pt!(2, 2));
         a.set(pt!(-2, 3), true);
 
         let ex2 = "10000\n00000\n00101\n00011\n00000\n10000";
         assert_eq!(ex2, format!("{a}").as_str());
-        assert_eq!(a.min, pt!(-2, -2));
-        assert_eq!(a.max, pt!(2, 3));
+        assert_eq!(a.bounds.min(), pt!(-2, -2));
+        assert_eq!(a.bounds.max(), pt!(2, 3));
         assert_eq!(30, a.bits.len());
         assert_eq!(1, a.words_used());
     }
