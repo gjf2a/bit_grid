@@ -341,7 +341,7 @@ impl<N: NumType> BoundingBox<N> {
 
 impl<N: NumType> Add<Point<N, 2>> for BoundingBox<N> {
     type Output = Self;
-    
+
     fn add(self, rhs: Point<N, 2>) -> Self::Output {
         Self {
             min: self.min + rhs,
@@ -440,7 +440,10 @@ mod tests {
 
     #[test]
     fn test_bounding_box() {
-        let bb: BoundingBox<i64> = [pt!(1, 2), pt!(-3, -2), pt!(-1, -1), pt!(-5, -1), pt!(0, 4)].iter().copied().collect();
+        let bb: BoundingBox<i64> = [pt!(1, 2), pt!(-3, -2), pt!(-1, -1), pt!(-5, -1), pt!(0, 4)]
+            .iter()
+            .copied()
+            .collect();
         assert_eq!(bb.min()[0], -5);
         assert_eq!(bb.max()[0], 1);
         assert_eq!(bb.min()[1], -2);
@@ -464,7 +467,9 @@ mod tests {
             (pt!(0, 5), true),
             (pt!(-7, -1), false),
             (pt!(0, 6), false),
-            ].iter() {
+        ]
+        .iter()
+        {
             assert_eq!(moved.in_bounds(p), *inside);
         }
     }

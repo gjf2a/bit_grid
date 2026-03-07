@@ -93,11 +93,15 @@ impl BitGrid {
     }
 
     pub fn x_axis_reflection(&self) -> Self {
-        self.ones().map(|p| pt!(p[0], self.bounds.max()[1] - p[1])).collect()
+        self.ones()
+            .map(|p| pt!(p[0], self.bounds.max()[1] - p[1]))
+            .collect()
     }
 
     pub fn y_axis_reflection(&self) -> Self {
-        self.ones().map(|p| pt!(self.bounds.max()[0] - p[0], p[1])).collect()
+        self.ones()
+            .map(|p| pt!(self.bounds.max()[0] - p[0], p[1]))
+            .collect()
     }
 
     fn setup(points: &Vec<(GridPoint, bool)>) -> Self {
