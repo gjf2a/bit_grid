@@ -138,10 +138,17 @@ impl BitGrid {
                 self.bits.set(i, value);
             }
             None => {
-                let min = self.bounds.min().element_min(&p);
-                let max = self.bounds.max().element_max(&p);
-                self.resize(min, max);
-                self.bits.set(self.unchecked_index_1d(&p), value);
+                if value {
+                    if self.bounds.singular() && self.ones().next().is_none() {
+                        self.bounds = BoundingBox::new(p, p);
+                        self.bits.set(self.unchecked_index_1d(&p), true);
+                    } else {
+                        let min = self.bounds.min().element_min(&p);
+                        let max = self.bounds.max().element_max(&p);
+                        self.resize(min, max);
+                        self.bits.set(self.unchecked_index_1d(&p), true);
+                    }
+                }
             }
         }
     }
@@ -154,8 +161,8 @@ impl BitGrid {
         span(self.bounds.min()[1], self.bounds.max()[1])
     }
 
-    pub fn coord_iter(&self) -> CoordIter {
-        CoordIter {
+    pub fn coord_iter(&self) -> RowMajorCoordIter {
+        RowMajorCoordIter {
             max_y: self.bounds.max()[1],
             min_x: self.bounds.min()[0],
             max_x: self.bounds.max()[0],
@@ -306,31 +313,38 @@ impl<'a> FromIterator<&'a GridPoint> for BitGrid {
     }
 }
 
-pub struct CoordIter {
-    max_y: i64,
-    min_x: i64,
-    max_x: i64,
-    x: i64,
-    y: i64,
-}
-
-impl Iterator for CoordIter {
-    type Item = GridPoint;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.y > self.max_y {
-            None
-        } else {
-            let result = Some(pt!(self.x, self.y));
-            self.x += 1;
-            if self.x > self.max_x {
-                self.x = self.min_x;
-                self.y += 1;
-            }
-            result
+macro_rules! make_coord_iter {
+    ($name:tt, $major_max:tt, $minor_min:tt, $minor_max:tt, $minor:tt, $major:tt) => {
+        pub struct $name {
+            $major_max: i64,
+            $minor_min: i64,
+            $minor_max: i64,
+            $minor: i64,
+            $major: i64,
         }
-    }
+
+        impl Iterator for $name {
+            type Item = GridPoint;
+
+            fn next(&mut self) -> Option<Self::Item> {
+                if self.$major > self.$major_max {
+                    None
+                } else {
+                    let result = Some(pt!(self.x, self.y));
+                    self.$minor += 1;
+                    if self.$minor > self.$minor_max {
+                        self.$minor = self.$minor_min;
+                        self.$major += 1;
+                    }
+                    result
+                }
+            }
+        }
+    };
 }
+
+make_coord_iter!(RowMajorCoordIter, max_y, min_x, max_x, x, y);
+make_coord_iter!(ColumnMajorCoordIter, max_x, min_y, max_y, y, x);
 
 const MANHATTAN_OFFSETS: [(i64, i64); 4] = [(-1, 0), (0, -1), (1, 0), (0, 1)];
 
@@ -584,5 +598,34 @@ mod tests {
 
         assert_eq!(map.x_axis_reflection(), expect_x);
         assert_eq!(map.y_axis_reflection(), expect_y);
+    }
+
+    #[test]
+    fn test_row_major_iteration() {
+        let points: Vec<GridPoint> = RowMajorCoordIter {
+            min_x: 0,
+            max_x: 3,
+            max_y: 2,
+            y: 0,
+            x: 0,
+        }
+        .collect();
+        let grid: BitGrid = points.iter().collect();
+        let grid_points: Vec<GridPoint> = grid.ones().collect();
+        assert_eq!(points, grid_points);
+    }
+
+    #[test]
+    fn test_no_origin() {
+        let tests = [vec![pt!(2, 3), pt!(4, 5)], vec![pt!(-2, 3), pt!(-1, -4)]];
+        for test in tests {
+            let bits: BitGrid = test.iter().copied().collect();
+            for bit in bits.ones() {
+                assert!(test.contains(&bit));
+            }
+            for bit in test.iter() {
+                assert!(bits.get(bit));
+            }
+        }
     }
 }

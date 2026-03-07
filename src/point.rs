@@ -330,6 +330,10 @@ impl<N: NumType> BoundingBox<N> {
         self.max
     }
 
+    pub fn singular(&self) -> bool {
+        self.min == self.max
+    }
+
     pub fn center(&self) -> Point<N, 2> {
         (self.min + self.max) / (N::one() + N::one())
     }
@@ -364,7 +368,10 @@ impl<N: NumType> FromIterator<Point<N, 2>> for BoundingBox<N> {
 mod tests {
     use std::collections::HashSet;
 
-    use crate::point::{BoundingBox, Point};
+    use crate::{
+        ColumnMajorCoordIter,
+        point::{BoundingBox, Point},
+    };
 
     use super::GridPoint;
 
@@ -439,6 +446,12 @@ mod tests {
     }
 
     #[test]
+    fn test_singular() {
+        let bb: BoundingBox<i64> = BoundingBox::default();
+        assert!(bb.singular());
+    }
+
+    #[test]
     fn test_bounding_box() {
         let bb: BoundingBox<i64> = [pt!(1, 2), pt!(-3, -2), pt!(-1, -1), pt!(-5, -1), pt!(0, 4)]
             .iter()
@@ -472,5 +485,20 @@ mod tests {
         {
             assert_eq!(moved.in_bounds(p), *inside);
         }
+    }
+
+    #[test]
+    fn test_ordering() {
+        let cds = ColumnMajorCoordIter {
+            max_x: 3,
+            min_y: 1,
+            max_y: 3,
+            x: 1,
+            y: 1,
+        }
+        .collect::<Vec<_>>();
+        let mut pts = cds.clone();
+        pts.sort();
+        assert_eq!(cds, pts);
     }
 }
