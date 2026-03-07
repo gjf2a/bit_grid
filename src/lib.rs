@@ -128,13 +128,12 @@ impl BitGrid {
     }
 
     pub fn coord_iter(&self) -> RowMajorCoordIter {
-        RowMajorCoordIter {
-            max_y: self.bounds.max()[1],
-            min_x: self.bounds.min()[0],
-            max_x: self.bounds.max()[0],
-            x: self.bounds.min()[0],
-            y: self.bounds.min()[1],
-        }
+        RowMajorCoordIter::new(
+            self.bounds.min()[0],
+            self.bounds.min()[1],
+            self.width(),
+            self.height(),
+        )
     }
 
     pub fn words_used(&self) -> u64 {
@@ -319,7 +318,31 @@ macro_rules! make_coord_iter {
 }
 
 make_coord_iter!(RowMajorCoordIter, max_y, min_x, max_x, x, y);
+impl RowMajorCoordIter {
+    pub fn new(x_start: i64, y_start: i64, width: i64, height: i64) -> Self {
+        Self {
+            max_x: x_start + width - 1,
+            max_y: y_start + height - 1,
+            min_x: x_start,
+            x: x_start,
+            y: y_start,
+        }
+    }
+}
+
 make_coord_iter!(ColumnMajorCoordIter, max_x, min_y, max_y, y, x);
+
+impl ColumnMajorCoordIter {
+    pub fn new(x_start: i64, y_start: i64, width: i64, height: i64) -> Self {
+        Self {
+            max_x: x_start + width - 1,
+            max_y: y_start + height - 1,
+            min_y: y_start,
+            x: x_start,
+            y: y_start,
+        }
+    }
+}
 
 const MANHATTAN_OFFSETS: [(i64, i64); 4] = [(-1, 0), (0, -1), (1, 0), (0, 1)];
 
