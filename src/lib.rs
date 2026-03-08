@@ -55,7 +55,7 @@ impl BitGrid {
             span(bounds.min()[0], bounds.max()[0]) * span(bounds.min()[1], bounds.max()[1]);
         Self {
             bounds,
-            bits: BitArray::zeros(num_zeros as u64),
+            bits: BitArray::zeros(num_zeros as usize),
         }
     }
 
@@ -100,7 +100,7 @@ impl BitGrid {
 
     pub fn get(&self, p: &GridPoint) -> bool {
         if self.bounds.in_bounds(p) {
-            self.bits.is_set(self.index_1d(p))
+            self.bits.get(self.index_1d(p))
         } else {
             false
         }
@@ -149,7 +149,7 @@ impl BitGrid {
         )
     }
 
-    pub fn words_used(&self) -> u64 {
+    pub fn words_used(&self) -> usize {
         let base = self.bits().len() / 64;
         let extra = if self.bits().len() % 64 > 0 { 1 } else { 0 };
         base + extra
@@ -192,13 +192,13 @@ impl BitGrid {
         (self & other).count_ones()
     }
 
-    fn index_1d(&self, p: &GridPoint) -> u64 {
+    fn index_1d(&self, p: &GridPoint) -> usize {
         let grid_x = p[0] - self.bounds.min()[0];
         let grid_y = p[1] - self.bounds.min()[1];
-        (grid_y * self.width() + grid_x) as u64
+        (grid_y * self.width() + grid_x) as usize
     }
 
-    fn index_2d(&self, i: u64) -> GridPoint {
+    fn index_2d(&self, i: usize) -> GridPoint {
         let i = i as i64;
         let uy = i / self.width();
         let ux = i % self.width();
