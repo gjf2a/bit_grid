@@ -172,7 +172,7 @@ impl BitGrid {
         })
     }
 
-    pub fn count_ones(&self) -> u64 {
+    pub fn count_ones(&self) -> usize {
         self.bits().count_ones()
     }
 
@@ -188,7 +188,7 @@ impl BitGrid {
         s
     }
 
-    pub fn overlapping_counts(&self, other: &Self) -> u64 {
+    pub fn overlapping_counts(&self, other: &Self) -> usize {
         (self & other).count_ones()
     }
 
@@ -433,7 +433,7 @@ mod tests {
             assert!(test_points.get(&p).unwrap_or(&false));
         }
         assert_eq!(grid.count_ones(), 2);
-        assert_eq!(grid.count_ones(), grid.ones().count() as u64);
+        assert_eq!(grid.count_ones(), grid.ones().count());
         assert_eq!(grid.width(), 2);
         assert_eq!(grid.height(), 5);
 
@@ -558,7 +558,7 @@ mod tests {
         .collect::<BTreeSet<_>>();
         assert_eq!(expected, found);
         let one_count = test_grid.count_ones();
-        assert_eq!(found.len() as u64 + 1, one_count);
+        assert_eq!(found.len() + 1, one_count);
         assert_eq!(51, test_grid.bits().len());
         assert_eq!(1, test_grid.words_used());
     }

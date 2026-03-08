@@ -28,7 +28,7 @@ dependencies = [
 [[package]]
 name = "bits"
 version = "0.15.0"
-source = "git+https://github.com/gjf2a/bits#a0a9b5ade4a57847e98d31089640aaafb6a37067"
+source = "git+https://github.com/gjf2a/bits#3dabec77d2c6209b969b4b6fbc92c4df14bf6d99"
 dependencies = [
  "num",
  "smallvec",
