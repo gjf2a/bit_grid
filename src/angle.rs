@@ -166,7 +166,7 @@ impl Angle for Degrees {
 
 impl Display for Degrees {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:.2}\u{00B0}", self.0)
+        write!(f, "{:.4}\u{00B0}", self.0)
     }
 }
 
