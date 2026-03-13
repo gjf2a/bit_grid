@@ -50,12 +50,22 @@ impl Default for BitGrid {
 }
 
 impl BitGrid {
-    fn zeros(bounds: BoundingBox<i64>) -> Self {
+
+    fn zero_grid(bounds: BoundingBox<i64>) -> Self {
         let num_zeros =
             span(bounds.min()[0], bounds.max()[0]) * span(bounds.min()[1], bounds.max()[1]);
         Self {
             bounds,
             bits: BitArray::zeros(num_zeros as usize),
+        }
+    }
+
+    pub fn one_grid(bounds: BoundingBox<i64>) -> Self {
+        let num_ones =
+            span(bounds.min()[0], bounds.max()[0]) * span(bounds.min()[1], bounds.max()[1]);
+        Self {
+            bounds,
+            bits: BitArray::ones(num_ones as usize),
         }
     }
 
@@ -117,7 +127,7 @@ impl BitGrid {
                 let new_bounds: Option<BoundingBox<i64>> = self.ones().collect();
                 let mut new_bounds = new_bounds.unwrap();
                 new_bounds.observe(&p);
-                let mut new_self = Self::zeros(new_bounds);
+                let mut new_self = Self::zero_grid(new_bounds);
                 for one in self.ones() {
                     assert!(new_self.bounds.in_bounds(&one));
                     new_self.set_to_one_unchecked(&one);
@@ -260,7 +270,7 @@ impl FromStr for BitGrid {
         let start_point = lines.by_ref().next().ok_or(anyhow::anyhow!("No content"))?.parse::<GridPoint>()?;
         let height = lines.clone().count();
         let width = lines.clone().next().ok_or(anyhow::anyhow!("No grid entries"))?.trim().len();
-        let mut result = Self::zeros(BoundingBox::new(start_point, start_point + pt!((width - 1) as i64, (height - 1) as i64)));
+        let mut result = Self::zero_grid(BoundingBox::new(start_point, start_point + pt!((width - 1) as i64, (height - 1) as i64)));
         for (y, line) in lines.enumerate() {
             for (x, c) in line.trim().char_indices() {
                 if Self::to_bit(c)? {
