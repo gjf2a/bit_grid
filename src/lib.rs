@@ -4,6 +4,7 @@ pub mod pose;
 
 use bits::BitArray;
 use num_traits::{Num, cast::ToPrimitive};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use std::{
     fmt::Display,
     iter::Sum,
@@ -13,7 +14,7 @@ use std::{
 use trait_set::trait_set;
 
 trait_set! {
-    pub trait NumType = FromStr + Display + ToPrimitive + Default + Num + Copy + AddAssign + SubAssign + MulAssign + DivAssign + PartialOrd + Sum;
+    pub trait NumType = Serialize + DeserializeOwned + FromStr + Display + ToPrimitive + Default + Num + Copy + AddAssign + SubAssign + MulAssign + DivAssign + PartialOrd + Sum;
 }
 
 use crate::point::{BoundingBox, GridPoint, Point};
@@ -22,7 +23,7 @@ pub fn span(min: i64, max: i64) -> i64 {
     1 + max - min
 }
 
-#[derive(Clone, Eq, Debug)]
+#[derive(Clone, Eq, Debug, Serialize, Deserialize)]
 pub struct BitGrid {
     bits: BitArray,
     bounds: BoundingBox<i64>,
@@ -50,7 +51,6 @@ impl Default for BitGrid {
 }
 
 impl BitGrid {
-
     fn zero_grid(bounds: BoundingBox<i64>) -> Self {
         let num_zeros =
             span(bounds.min()[0], bounds.max()[0]) * span(bounds.min()[1], bounds.max()[1]);

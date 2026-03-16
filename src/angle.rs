@@ -4,6 +4,8 @@ use std::{
     ops::{Add, AddAssign, Sub, SubAssign},
 };
 
+use serde::{Deserialize, Serialize};
+
 use crate::point::FloatPoint;
 
 pub trait Angle {
@@ -30,7 +32,7 @@ pub trait Angle {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, PartialOrd, Debug, Default)]
+#[derive(Serialize, Deserialize, Copy, Clone, PartialEq, PartialOrd, Debug, Default)]
 pub struct Radians(f64);
 
 impl Angle for Radians {
@@ -139,7 +141,7 @@ impl From<FloatPoint> for (f64, Degrees) {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, PartialOrd, Debug, Default)]
+#[derive(Serialize, Deserialize, Copy, Clone, PartialEq, PartialOrd, Debug, Default)]
 pub struct Degrees(f64);
 
 impl Angle for Degrees {

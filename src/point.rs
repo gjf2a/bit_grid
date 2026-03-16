@@ -5,6 +5,7 @@ use std::{
 };
 
 use itertools::Itertools;
+use serde::{Deserialize, Serialize};
 
 use crate::NumType;
 
@@ -18,8 +19,9 @@ macro_rules! pt {
 pub type GridPoint = Point<i64, 2>;
 pub type FloatPoint = Point<f64, 2>;
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd)]
+#[derive(Serialize, Deserialize, Copy, Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd)]
 pub struct Point<N: NumType, const S: usize> {
+    #[serde(with = "serde_arrays")]
     coords: [N; S],
 }
 
@@ -299,7 +301,8 @@ impl<N: NumType, const S: usize> Div<N> for Point<N, S> {
     }
 }
 
-#[derive(Default, Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Default, Clone, Copy, Debug, Eq, PartialEq)]
+#[serde(bound(serialize = "N: NumType", deserialize = "N: NumType"))]
 pub struct BoundingBox<N: NumType> {
     min: Point<N, 2>,
     max: Point<N, 2>,
