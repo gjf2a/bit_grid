@@ -344,6 +344,14 @@ impl<N: NumType> BoundingBox<N> {
     pub fn in_bounds(&self, p: &Point<N, 2>) -> bool {
         self.min[0] <= p[0] && p[0] <= self.max[0] && self.min[1] <= p[1] && p[1] <= self.max[1]
     }
+
+    pub fn grow(&mut self, growth: N) {
+        assert!(growth > N::zero());
+        self.min[0] -= growth;
+        self.min[1] -= growth;
+        self.max[0] += growth;
+        self.max[1] += growth;
+    }
 }
 
 impl<N: NumType> Add<Point<N, 2>> for BoundingBox<N> {
