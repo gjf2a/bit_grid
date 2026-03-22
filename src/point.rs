@@ -1,6 +1,6 @@
 use std::{
     fmt::Display,
-    ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Neg, Sub, SubAssign},
+    ops::{Add, AddAssign, BitOr, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Neg, Sub, SubAssign},
     str::FromStr,
 };
 
@@ -313,13 +313,6 @@ impl<N: NumType> BoundingBox<N> {
         Self { min, max }
     }
 
-    pub fn merge(&self, other: BoundingBox<N>) -> Self {
-        Self {
-            min: self.min.element_min(&other.min),
-            max: self.max.element_max(&other.max),
-        }
-    }
-
     pub fn observe(&mut self, p: &Point<N, 2>) {
         self.min = self.min.element_min(&p);
         self.max = self.max.element_max(&p);
@@ -361,6 +354,17 @@ impl<N: NumType> Add<Point<N, 2>> for BoundingBox<N> {
         Self {
             min: self.min + rhs,
             max: self.max + rhs,
+        }
+    }
+}
+
+impl<N: NumType> BitOr for BoundingBox<N> {
+    type Output = Self;
+
+    fn bitor(self, rhs: Self) -> Self::Output {
+        Self {
+            min: self.min.element_min(&rhs.min),
+            max: self.max.element_max(&rhs.max),
         }
     }
 }
