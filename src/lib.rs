@@ -143,11 +143,11 @@ impl BitGrid {
     }
 
     pub fn width(&self) -> i64 {
-        span(self.bounds.min()[0], self.bounds.max()[0])
+        self.bounds.width()
     }
 
     pub fn height(&self) -> i64 {
-        span(self.bounds.min()[1], self.bounds.max()[1])
+        self.bounds.height()
     }
 
     pub fn coord_iter(&self) -> RowMajorCoordIter {
