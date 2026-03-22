@@ -7,7 +7,7 @@ use std::{
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
-use crate::NumType;
+use crate::{NumType, span};
 
 #[macro_export]
 macro_rules! pt {
@@ -344,6 +344,26 @@ impl<N: NumType> BoundingBox<N> {
         self.min[1] -= growth;
         self.max[0] += growth;
         self.max[1] += growth;
+    }
+}
+
+impl BoundingBox<i64> {
+    pub fn width(&self) -> i64 {
+        span(self.min[0], self.max[0])
+    }
+
+    pub fn height(&self) -> i64 {
+        span(self.min[1], self.max[1])
+    } 
+}
+
+impl BoundingBox<f64> {
+    pub fn width(&self) -> f64 {
+        self.max[0] - self.min[0]
+    }
+
+    pub fn height(&self) -> f64 {
+        self.max[1] - self.min[1]
     }
 }
 
