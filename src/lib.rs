@@ -151,12 +151,7 @@ impl BitGrid {
     }
 
     pub fn coord_iter(&self) -> RowMajorCoordIter {
-        RowMajorCoordIter::new(
-            self.bounds.min()[0],
-            self.bounds.min()[1],
-            self.width(),
-            self.height(),
-        )
+        self.bounds.coord_iter()
     }
 
     pub fn words_used(&self) -> usize {

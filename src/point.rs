@@ -7,7 +7,7 @@ use std::{
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
-use crate::{NumType, span};
+use crate::{NumType, RowMajorCoordIter, span};
 
 #[macro_export]
 macro_rules! pt {
@@ -355,6 +355,15 @@ impl BoundingBox<i64> {
     pub fn height(&self) -> i64 {
         span(self.min[1], self.max[1])
     } 
+
+    pub fn coord_iter(&self) -> RowMajorCoordIter {
+        RowMajorCoordIter::new(
+            self.min()[0],
+            self.min()[1],
+            self.width(),
+            self.height(),
+        )
+    }
 }
 
 impl BoundingBox<f64> {
