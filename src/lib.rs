@@ -262,10 +262,22 @@ impl FromStr for BitGrid {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut lines = s.trim().lines().filter(|line| line.len() > 0);
-        let start_point = lines.by_ref().next().ok_or(anyhow::anyhow!("No content"))?.parse::<GridPoint>()?;
+        let start_point = lines
+            .by_ref()
+            .next()
+            .ok_or(anyhow::anyhow!("No content"))?
+            .parse::<GridPoint>()?;
         let height = lines.clone().count();
-        let width = lines.clone().next().ok_or(anyhow::anyhow!("No grid entries"))?.trim().len();
-        let mut result = Self::zero_grid(BoundingBox::new(start_point, start_point + pt!((width - 1) as i64, (height - 1) as i64)));
+        let width = lines
+            .clone()
+            .next()
+            .ok_or(anyhow::anyhow!("No grid entries"))?
+            .trim()
+            .len();
+        let mut result = Self::zero_grid(BoundingBox::new(
+            start_point,
+            start_point + pt!((width - 1) as i64, (height - 1) as i64),
+        ));
         for (y, line) in lines.enumerate() {
             for (x, c) in line.trim().char_indices() {
                 if Self::to_bit(c)? {

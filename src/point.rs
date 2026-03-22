@@ -1,6 +1,8 @@
 use std::{
     fmt::Display,
-    ops::{Add, AddAssign, BitOr, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Neg, Sub, SubAssign},
+    ops::{
+        Add, AddAssign, BitOr, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Neg, Sub, SubAssign,
+    },
     str::FromStr,
 };
 
@@ -131,21 +133,24 @@ impl_point_iter!(u64);
 
 const OFFSETS: [i64; 3] = [-1, 0, 1];
 
+pub fn manhattan_offsets<const S: usize>() -> impl Iterator<Item = Point<i64, S>> {
+    OFFSETS
+        .iter()
+        .copied()
+        .permutations(S)
+        .filter(|c| c.iter().filter(|n| **n != 0).count() == 1)
+        .map(|v| {
+            let mut values = [0; S];
+            for i in 0..S {
+                values[i] = v[i];
+            }
+            Point::<i64, S>::new(values)
+        })
+}
+
 impl<const S: usize> Point<i64, S> {
     pub fn manhattan_neighbors(&self) -> impl Iterator<Item = Point<i64, S>> + use<'_, S> {
-        OFFSETS
-            .iter()
-            .permutations(S)
-            .filter(|c| c.iter().filter(|n| ***n != 0).count() == 1)
-            .map(|c| {
-                let mut values = [0; S];
-                for i in 0..S {
-                    values[i] = self[i] as i64 + c[i];
-                }
-                values
-            })
-            .filter(|c| (0..S).all(|i| c[i] >= 0))
-            .map(|c| Point::<i64, S>::new(c.map(|v| v)))
+        manhattan_offsets().map(|offset| *self + offset)
     }
 }
 
@@ -354,15 +359,10 @@ impl BoundingBox<i64> {
 
     pub fn height(&self) -> i64 {
         span(self.min[1], self.max[1])
-    } 
+    }
 
     pub fn coord_iter(&self) -> RowMajorCoordIter {
-        RowMajorCoordIter::new(
-            self.min()[0],
-            self.min()[1],
-            self.width(),
-            self.height(),
-        )
+        RowMajorCoordIter::new(self.min()[0], self.min()[1], self.width(), self.height())
     }
 }
 
@@ -406,7 +406,7 @@ impl<N: NumType> FromIterator<Point<N, 2>> for Option<BoundingBox<N>> {
                 result.observe(&point);
             } else {
                 result = Some(BoundingBox::new(point, point));
-            } 
+            }
         }
         result
     }
@@ -432,7 +432,7 @@ mod tests {
     #[test]
     fn test_neighbor() {
         test_neighbor_help(GridPoint::new([3, 2]), &[(2, 2), (4, 2), (3, 1), (3, 3)]);
-        test_neighbor_help(GridPoint::new([0, 0]), &[(1, 0), (0, 1)]);
+        test_neighbor_help(GridPoint::new([0, 0]), &[(-1, 0), (1, 0), (0, -1), (0, 1)]);
     }
 
     fn test_neighbor_help(gp: GridPoint, expected: &[(i64, i64)]) {
@@ -507,10 +507,11 @@ mod tests {
 
     #[test]
     fn test_bounding_box() {
-        let bb: Option<BoundingBox<i64>> = [pt!(1, 2), pt!(-3, -2), pt!(-1, -1), pt!(-5, -1), pt!(0, 4)]
-            .iter()
-            .copied()
-            .collect();
+        let bb: Option<BoundingBox<i64>> =
+            [pt!(1, 2), pt!(-3, -2), pt!(-1, -1), pt!(-5, -1), pt!(0, 4)]
+                .iter()
+                .copied()
+                .collect();
         let bb = bb.unwrap();
         assert_eq!(bb.min()[0], -5);
         assert_eq!(bb.max()[0], 1);
@@ -544,9 +545,15 @@ mod tests {
 
     #[test]
     fn test_bounding_box_observe() {
-        let mut bb = BoundingBox { min: Point { coords: [-2, -1] }, max: Point { coords: [-2, -1] } };
+        let mut bb = BoundingBox {
+            min: Point { coords: [-2, -1] },
+            max: Point { coords: [-2, -1] },
+        };
         bb.observe(&pt!(-1, -1));
-        let expected = BoundingBox { min: Point { coords: [-2, -1] }, max: Point { coords: [-1, -1] } };
+        let expected = BoundingBox {
+            min: Point { coords: [-2, -1] },
+            max: Point { coords: [-1, -1] },
+        };
         assert_eq!(expected, bb);
     }
 
@@ -554,7 +561,10 @@ mod tests {
     fn test_bounding_box_collect() {
         let bb: Option<BoundingBox<i64>> = [pt!(-2, -1)].iter().copied().collect();
         let bb = bb.unwrap();
-        let expected = BoundingBox { min: Point { coords: [-2, -1] }, max: Point { coords: [-2, -1] } };
+        let expected = BoundingBox {
+            min: Point { coords: [-2, -1] },
+            max: Point { coords: [-2, -1] },
+        };
         assert_eq!(bb, expected);
     }
 
