@@ -361,6 +361,10 @@ impl BoundingBox<i64> {
         span(self.min[1], self.max[1])
     }
 
+    pub fn area(&self) -> i64 {
+        self.width() * self.height()
+    }
+
     pub fn coord_iter(&self) -> RowMajorCoordIter {
         RowMajorCoordIter::new(self.min()[0], self.min()[1], self.width(), self.height())
     }
@@ -373,6 +377,10 @@ impl BoundingBox<f64> {
 
     pub fn height(&self) -> f64 {
         self.max[1] - self.min[1]
+    }
+
+    pub fn area(&self) -> f64 {
+        self.width() * self.height()
     }
 }
 
