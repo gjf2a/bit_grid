@@ -3,9 +3,11 @@ use std::{
     ops::{Add, AddAssign, Sub, SubAssign},
 };
 
+use serde::{Deserialize, Serialize};
+
 use crate::{angle::Angle, point::FloatPoint};
 
-#[derive(Copy, Clone, PartialEq, Debug, Default)]
+#[derive(Serialize, Deserialize, Copy, Clone, PartialEq, Debug, Default)]
 pub struct RobotPose<A: Angle> {
     pub pos: FloatPoint,
     pub theta: A,

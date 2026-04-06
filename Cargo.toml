@@ -6,6 +6,8 @@ edition = "2024"
 [dependencies]
 bits = {git = "https://github.com/gjf2a/bits"}
 anyhow = "1.0.101"
-trait-set = "0.3"
-num-traits = "0.2"
+trait-set = "0.3.0"
+num-traits = "0.2.19"
 itertools = "0.14.0"
+serde = {version = "1.0.228", features = ["derive"]}
+serde_arrays = "0.2.0"

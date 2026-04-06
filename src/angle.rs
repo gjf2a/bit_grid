@@ -4,6 +4,8 @@ use std::{
     ops::{Add, AddAssign, Sub, SubAssign},
 };
 
+use serde::{Deserialize, Serialize};
+
 use crate::point::FloatPoint;
 
 pub trait Angle {
@@ -30,7 +32,7 @@ pub trait Angle {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, PartialOrd, Debug, Default)]
+#[derive(Serialize, Deserialize, Copy, Clone, PartialEq, PartialOrd, Debug, Default)]
 pub struct Radians(f64);
 
 impl Angle for Radians {
@@ -82,6 +84,14 @@ macro_rules! angle_code {
         impl $type {
             pub fn new(angle: f64) -> Self {
                 Self(Self::normalize_angle(angle))
+            }
+
+            pub fn abs(&self) -> Self {
+                if self.0 < 0.0 {
+                    $type::new(-self.0)
+                } else {
+                    *self
+                }
             }
         }
 
@@ -139,7 +149,7 @@ impl From<FloatPoint> for (f64, Degrees) {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, PartialOrd, Debug, Default)]
+#[derive(Serialize, Deserialize, Copy, Clone, PartialEq, PartialOrd, Debug, Default)]
 pub struct Degrees(f64);
 
 impl Angle for Degrees {
@@ -187,5 +197,26 @@ impl From<Radians> for Degrees {
 impl From<Degrees> for Radians {
     fn from(value: Degrees) -> Self {
         Self::new(value.0 * PI / 180.0)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::angle::Degrees;
+
+    #[test]
+    fn test_distance() {
+        for (baseline, angle, distance) in [
+            (90.0, 70.0, 20.0),
+            (90.0, 110.0, 20.0),
+            (-90.0, -70.0, 20.0),
+            (-90.0, -110.0, 20.0),
+        ] {
+            let baseline = Degrees::new(baseline);
+            let angle = Degrees::new(angle);
+            let distance = Degrees::new(distance);
+            let actual = (baseline - angle).abs();
+            assert_eq!(actual, distance);
+        }
     }
 }
